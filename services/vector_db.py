@@ -178,7 +178,79 @@ class HRVectorDB:
     
     def add_sample_data(self):
         """Add sample HR data for testing"""
-        # Sample job descriptions
+        # First, scan for PDF files in sample_resumes folder
+        import os
+        from pathlib import Path
+        
+        pdf_files = []
+        sample_resumes_path = Path("sample_resumes")
+        
+        if sample_resumes_path.exists():
+            for pdf_file in sample_resumes_path.glob("*.pdf"):
+                pdf_files.append(pdf_file)
+        
+        logger.info(f"Found {len(pdf_files)} PDF files in sample_resumes folder")
+        
+        # Process PDF files and create candidate data
+        processed_candidates = []
+        
+        for pdf_file in pdf_files[:10]:  # Process first 10 PDFs for now
+            try:
+                # Extract candidate name from filename
+                filename = pdf_file.stem
+                # Extract name from pattern like "resume_001_John_Smith_Role"
+                parts = filename.split('_')
+                if len(parts) >= 4:
+                    candidate_name = f"{parts[2]} {parts[3]}"
+                else:
+                    candidate_name = filename.replace('_', ' ').title()
+                
+                # Create sample resume text (in real implementation, extract from PDF)
+                resume_text = f"""{candidate_name} - Professional Resume
+                
+Email: {candidate_name.lower().replace(' ', '.')}@email.com
+Phone: (555) 123-4567
+
+EXPERIENCE: 5 years
+
+SKILLS:
+- Software Engineering, Data Science, Product Management
+- Python, JavaScript, React, SQL
+- Project Management, Team Leadership
+- Cloud Technologies, Machine Learning
+
+EXPERIENCE:
+Senior Professional at TechCorp (2020-2024)
+- Led development of innovative solutions
+- Managed cross-functional teams
+- Delivered high-impact projects
+- Mentored junior team members
+
+Professional at StartupXYZ (2018-2020)
+- Developed scalable applications
+- Collaborated with stakeholders
+- Implemented best practices
+                """
+                
+                # Add resume with PDF file reference
+                self.add_resume(candidate_name, resume_text, {
+                    "experience_years": 5,
+                    "skills": "Python, JavaScript, React, SQL, Machine Learning",
+                    "email": f"{candidate_name.lower().replace(' ', '.')}@email.com",
+                    "phone": "(555) 123-4567",
+                    "pdf_file_path": str(pdf_file),
+                    "pdf_filename": pdf_file.name,
+                    "file_size": pdf_file.stat().st_size
+                })
+                
+                processed_candidates.append(candidate_name)
+                
+            except Exception as e:
+                logger.warning(f"Error processing {pdf_file.name}: {e}")
+        
+        logger.info(f"Processed {len(processed_candidates)} PDF resumes")
+        
+        # Add some sample job descriptions
         sample_jobs = [
             {
                 "title": "Frontend Developer",
@@ -208,144 +280,6 @@ class HRVectorDB:
         
         for job in sample_jobs:
             self.add_job_description(job["title"], job["description"], job["metadata"])
-        
-        # Sample resumes
-        sample_resumes = [
-            {
-                "name": "John Doe",
-                "resume": """John Doe - Senior Frontend Developer
-                Email: john.doe@email.com | Phone: (555) 123-4567
-                
-                EXPERIENCE: 5 years
-                
-                SKILLS:
-                - React, JavaScript, TypeScript, HTML5, CSS3
-                - Redux, Next.js, Vue.js
-                - Responsive Design, Mobile-First Development
-                - Git, Webpack, npm, yarn
-                - REST APIs, GraphQL
-                - Testing: Jest, Cypress, React Testing Library
-                
-                EXPERIENCE:
-                Senior Frontend Developer at TechCorp (2021-2024)
-                - Led development of React-based web applications
-                - Implemented responsive designs for mobile and desktop
-                - Collaborated with backend teams on API integration
-                - Mentored junior developers
-                
-                Frontend Developer at StartupXYZ (2019-2021)
-                - Built user interfaces using React and TypeScript
-                - Optimized application performance and loading times
-                - Implemented automated testing strategies""",
-                "metadata": {
-                    "experience_years": 5,
-                    "skills": "React, JavaScript, TypeScript, HTML, CSS",
-                    "email": "john.doe@email.com",
-                    "phone": "(555) 123-4567"
-                }
-            },
-            {
-                "name": "Jane Smith",
-                "resume": """Jane Smith - Data Scientist
-                Email: jane.smith@email.com | Phone: (555) 234-5678
-                
-                EXPERIENCE: 7 years
-                
-                SKILLS:
-                - Python, R, SQL, Scala
-                - Machine Learning: scikit-learn, TensorFlow, PyTorch
-                - Data Analysis: pandas, numpy, matplotlib, seaborn
-                - Big Data: Spark, Hadoop, Kafka
-                - Cloud: AWS, GCP, Azure
-                - Statistics, A/B Testing, Experimental Design
-                
-                EXPERIENCE:
-                Senior Data Scientist at DataTech Inc (2020-2024)
-                - Developed ML models for customer segmentation and recommendation systems
-                - Led data science projects from conception to production
-                - Collaborated with engineering teams to deploy models at scale
-                - Mentored junior data scientists
-                
-                Data Scientist at Analytics Corp (2017-2020)
-                - Built predictive models for business forecasting
-                - Performed statistical analysis and hypothesis testing
-                - Created data visualizations and dashboards""",
-                "metadata": {
-                    "experience_years": 7,
-                    "skills": "Python, Machine Learning, SQL, TensorFlow, Statistics",
-                    "email": "jane.smith@email.com",
-                    "phone": "(555) 234-5678"
-                }
-            },
-            {
-                "name": "Mike Johnson",
-                "resume": """Mike Johnson - Backend Developer
-                Email: mike.johnson@email.com | Phone: (555) 345-6789
-                
-                EXPERIENCE: 4 years
-                
-                SKILLS:
-                - Python, Django, Flask, FastAPI
-                - PostgreSQL, MySQL, MongoDB
-                - REST APIs, GraphQL
-                - Docker, Kubernetes
-                - AWS, GCP
-                - Redis, Celery
-                - Git, CI/CD, Jenkins
-                
-                EXPERIENCE:
-                Backend Developer at CloudSoft (2022-2024)
-                - Designed and implemented RESTful APIs using Django
-                - Optimized database queries and improved application performance
-                - Implemented microservices architecture
-                - Set up CI/CD pipelines and automated testing
-                
-                Junior Backend Developer at WebSolutions (2020-2022)
-                - Developed web applications using Python and Django
-                - Worked with PostgreSQL databases
-                - Integrated third-party APIs and services""",
-                "metadata": {
-                    "experience_years": 4,
-                    "skills": "Python, Django, PostgreSQL, REST APIs, Docker",
-                    "email": "mike.johnson@email.com",
-                    "phone": "(555) 345-6789"
-                }
-            },
-            {
-                "name": "Sarah Wilson",
-                "resume": """Sarah Wilson - Full Stack Developer
-                Email: sarah.wilson@email.com | Phone: (555) 456-7890
-                
-                EXPERIENCE: 3 years
-                
-                SKILLS:
-                - Frontend: React, JavaScript, TypeScript, HTML, CSS
-                - Backend: Node.js, Express, Python, Django
-                - Databases: PostgreSQL, MongoDB
-                - Cloud: AWS, Heroku
-                - DevOps: Docker, Git, CI/CD
-                
-                EXPERIENCE:
-                Full Stack Developer at InnovateTech (2021-2024)
-                - Built end-to-end web applications using React and Node.js
-                - Developed RESTful APIs and integrated with databases
-                - Implemented responsive designs and user interfaces
-                - Collaborated with designers and product managers
-                
-                Junior Developer at StartupHub (2021)
-                - Assisted in frontend development using React
-                - Learned backend development with Node.js and Express""",
-                "metadata": {
-                    "experience_years": 3,
-                    "skills": "React, JavaScript, Node.js, Python, Full Stack",
-                    "email": "sarah.wilson@email.com",
-                    "phone": "(555) 456-7890"
-                }
-            }
-        ]
-        
-        for resume in sample_resumes:
-            self.add_resume(resume["name"], resume["resume"], resume["metadata"])
         
         # Sample interview questions
         interview_questions = [

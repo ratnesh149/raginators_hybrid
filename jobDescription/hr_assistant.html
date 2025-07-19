@@ -415,6 +415,9 @@
     <script>
         const API_BASE = 'http://localhost:5000/api';
         
+        // Store current candidates for download functionality
+        let currentCandidates = [];
+        
         // Chat functionality
         function sendMessage() {
             const input = document.getElementById('chatInput');
@@ -474,6 +477,100 @@
             }
         }
         
+        // Resume download functions
+        function downloadResume(candidateName) {
+            fetch(`${API_BASE}/download-resume`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ candidate_name: candidateName })
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.blob();
+                } else {
+                    throw new Error('Resume not found');
+                }
+            })
+            .then(blob => {
+                // Create download link
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `${candidateName.replace(/\s+/g, '_')}_Resume.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                showNotification(`✅ Downloaded resume for ${candidateName}`, 'success');
+            })
+            .catch(error => {
+                console.error('Error downloading resume:', error);
+                showNotification(`❌ Could not download resume for ${candidateName}`, 'error');
+            });
+        }
+        
+        function downloadAllResumes() {
+            if (currentCandidates.length === 0) {
+                showNotification('❌ No candidates to download', 'error');
+                return;
+            }
+            
+            fetch(`${API_BASE}/download-all-resumes`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    candidates: currentCandidates.map(c => c.name) 
+                })
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.blob();
+                } else {
+                    throw new Error('Could not create ZIP file');
+                }
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `Shortlisted_Candidates_Resumes_${new Date().toISOString().split('T')[0]}.zip`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                showNotification(`✅ Downloaded ${currentCandidates.length} resumes as ZIP file`, 'success');
+            })
+            .catch(error => {
+                console.error('Error downloading all resumes:', error);
+                showNotification('❌ Could not download all resumes', 'error');
+            });
+        }
+        
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed; top: 20px; right: 20px; padding: 15px 20px; 
+                border-radius: 8px; color: white; font-weight: 600; z-index: 1001;
+                ${type === 'success' ? 'background: #28a745;' : 
+                  type === 'error' ? 'background: #dc3545;' : 'background: #17a2b8;'}
+            `;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+        
         // Candidate shortlisting
         function shortlistCandidates() {
             const requirements = document.getElementById('requirements').value.trim();
@@ -527,10 +624,23 @@
             let html = '<h4>🎯 Candidate Shortlist</h4>';
             
             if (data.candidates && data.candidates.length > 0) {
+                // Store candidates for download functionality
+                currentCandidates = data.candidates;
+                
                 data.candidates.forEach((candidate, index) => {
                     html += `
                         <div style="margin: 15px 0; padding: 15px; background: white; border-radius: 8px; border-left: 4px solid #4facfe;">
-                            <strong>${index + 1}. ${candidate.name}</strong><br>
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                                <div style="flex: 1;">
+                                    <strong>${index + 1}. ${candidate.name}</strong>
+                                </div>
+                                <div>
+                                    <button onclick="downloadResume('${candidate.name}')" 
+                                            style="background: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                                        📄 Download PDF
+                                    </button>
+                                </div>
+                            </div>
                             📊 Match Score: ${(candidate.score * 100).toFixed(1)}%<br>
                             💼 Experience: ${candidate.experience} years<br>
                             📧 Email: <a href="mailto:${candidate.email}" style="color: #4facfe;">${candidate.email}</a><br>
@@ -539,6 +649,16 @@
                         </div>
                     `;
                 });
+                
+                // Add bulk download button
+                html += `
+                    <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; text-align: center;">
+                        <button onclick="downloadAllResumes()" 
+                                style="background: #6f42c1; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                            📦 Download All Resumes (ZIP)
+                        </button>
+                    </div>
+                `;
                 
                 if (data.summary) {
                     html += `

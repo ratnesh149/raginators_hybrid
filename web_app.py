@@ -1,7 +1,10 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_from_directory, send_file
 from flask_cors import CORS
 import os
 import json
+import zipfile
+from io import BytesIO
+from datetime import datetime
 from graph.stategraph import graph
 from services.vector_db import HRVectorDB, get_vector_db
 from tools.candidate_shortlist import candidate_shortlist_tool
@@ -285,6 +288,143 @@ def api_search_similar_jobs():
         
     except Exception as e:
         logger.error(f"Error in similar jobs search: {str(e)}")
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+
+@app.route('/api/download-resume', methods=['POST'])
+def api_download_resume():
+    """API endpoint for downloading individual PDF resume"""
+    try:
+        data = request.get_json()
+        candidate_name = data.get('candidate_name', '')
+        
+        if not candidate_name:
+            return jsonify({'error': 'Candidate name is required'}), 400
+        
+        logger.info(f"Downloading resume for: {candidate_name}")
+        
+        # Search for candidate in vector database
+        results = vector_db.search_candidates(candidate_name, n_results=5)
+        
+        if not results:
+            return jsonify({'error': 'Resume not found'}), 404
+        
+        # Find the best match for the candidate
+        best_match = None
+        for result in results:
+            metadata = result.get('metadata', {})
+            if metadata.get('candidate_name', '').lower() == candidate_name.lower():
+                best_match = result
+                break
+        
+        if not best_match:
+            # Try partial match
+            for result in results:
+                metadata = result.get('metadata', {})
+                stored_name = metadata.get('candidate_name', '').lower()
+                if candidate_name.lower() in stored_name or stored_name in candidate_name.lower():
+                    best_match = result
+                    break
+        
+        if not best_match:
+            return jsonify({'error': f'No resume found for {candidate_name}'}), 404
+        
+        # Get PDF file path from metadata
+        metadata = best_match.get('metadata', {})
+        pdf_path = metadata.get('pdf_file_path')
+        pdf_filename = metadata.get('pdf_filename', f"{candidate_name.replace(' ', '_')}_Resume.pdf")
+        
+        if not pdf_path or not os.path.exists(pdf_path):
+            return jsonify({'error': 'PDF file not found on disk'}), 404
+        
+        # Serve the actual PDF file
+        return send_file(
+            pdf_path,
+            as_attachment=True,
+            download_name=pdf_filename,
+            mimetype='application/pdf'
+        )
+        
+    except Exception as e:
+        logger.error(f"Error downloading resume: {str(e)}")
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+
+@app.route('/api/download-all-resumes', methods=['POST'])
+def api_download_all_resumes():
+    """API endpoint for downloading all shortlisted resumes as ZIP"""
+    try:
+        data = request.get_json()
+        candidate_names = data.get('candidates', [])
+        
+        if not candidate_names:
+            return jsonify({'error': 'No candidates specified'}), 400
+        
+        logger.info(f"Creating ZIP file for {len(candidate_names)} candidates")
+        
+        # Create ZIP file in memory
+        zip_buffer = BytesIO()
+        
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            for candidate_name in candidate_names:
+                try:
+                    # Search for candidate in vector database
+                    results = vector_db.search_candidates(candidate_name, n_results=5)
+                    
+                    if results:
+                        # Find the best match
+                        best_match = None
+                        for result in results:
+                            metadata = result.get('metadata', {})
+                            stored_name = metadata.get('candidate_name', '').lower()
+                            if stored_name == candidate_name.lower() or candidate_name.lower() in stored_name:
+                                best_match = result
+                                break
+                        
+                        if best_match:
+                            metadata = best_match.get('metadata', {})
+                            pdf_path = metadata.get('pdf_file_path')
+                            pdf_filename = metadata.get('pdf_filename', f"{candidate_name.replace(' ', '_')}_Resume.pdf")
+                            
+                            if pdf_path and os.path.exists(pdf_path):
+                                # Add PDF to ZIP
+                                zip_file.write(pdf_path, pdf_filename)
+                            else:
+                                # Add error file if PDF not found
+                                zip_file.writestr(
+                                    f"{candidate_name.replace(' ', '_')}_ERROR.txt",
+                                    f"PDF file not found for {candidate_name}"
+                                )
+                        else:
+                            # Add error file if candidate not found
+                            zip_file.writestr(
+                                f"{candidate_name.replace(' ', '_')}_ERROR.txt",
+                                f"Candidate {candidate_name} not found in database"
+                            )
+                    else:
+                        # Add error file if no results
+                        zip_file.writestr(
+                            f"{candidate_name.replace(' ', '_')}_ERROR.txt",
+                            f"No resume found for {candidate_name}"
+                        )
+                        
+                except Exception as e:
+                    logger.warning(f"Could not add resume for {candidate_name}: {e}")
+                    # Add error file
+                    zip_file.writestr(
+                        f"{candidate_name.replace(' ', '_')}_ERROR.txt",
+                        f"Error processing resume for {candidate_name}: {str(e)}"
+                    )
+        
+        zip_buffer.seek(0)
+        
+        return send_file(
+            zip_buffer,
+            as_attachment=True,
+            download_name=f"Shortlisted_Candidates_Resumes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
+            mimetype='application/zip'
+        )
+        
+    except Exception as e:
+        logger.error(f"Error creating ZIP file: {str(e)}")
         return jsonify({'error': f'Internal server error: {str(e)}'}), 500
 
 @app.route('/api/health', methods=['GET'])
