@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Find Candidates</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: #f9f9f9;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <h1>🐛 Debug - Find Candidates Feature</h1>
+    
+    <div class="form-group">
+        <label for="requirements">Job Requirements:</label>
+        <textarea id="requirements" placeholder="e.g., React, TypeScript, 5+ years experience" rows="3">React JavaScript frontend developer</textarea>
+    </div>
+    
+    <div class="form-group">
+        <label for="minExperience">Minimum Experience (years):</label>
+        <input type="number" id="minExperience" value="3" min="0">
+    </div>
+    
+    <div class="form-group">
+        <label for="candidateLimit">Number of Candidates:</label>
+        <select id="candidateLimit">
+            <option value="3">Top 3</option>
+            <option value="5" selected>Top 5</option>
+            <option value="10">Top 10</option>
+        </select>
+    </div>
+    
+    <button id="findBtn" onclick="testFindCandidates()">🔍 Test Find Candidates</button>
+    <button onclick="testServerConnection()">🌐 Test Server Connection</button>
+    <button onclick="clearResults()">🗑️ Clear Results</button>
+    
+    <div id="results" class="result" style="display: none;"></div>
+    
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+        
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : '';
+            
+            results.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            results.style.display = 'block';
+            results.scrollTop = results.scrollHeight;
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('results').style.display = 'none';
+        }
+        
+        async function testServerConnection() {
+            log('🔍 Testing server connection...');
+            
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Server is running: ${data.service} v${data.version}`, 'success');
+                } else {
+                    log(`❌ Server responded with status: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Cannot connect to server: ${error.message}`, 'error');
+                log('💡 Make sure the server is running: python start_web_app.py');
+            }
+        }
+        
+        async function testFindCandidates() {
+            const requirements = document.getElementById('requirements').value.trim();
+            const minExperience = parseInt(document.getElementById('minExperience').value) || 0;
+            const limit = parseInt(document.getElementById('candidateLimit').value) || 5;
+            
+            if (!requirements) {
+                log('❌ Please enter job requirements', 'error');
+                return;
+            }
+            
+            const btn = document.getElementById('findBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Finding Candidates...';
+            
+            log(`🔍 Searching for candidates with requirements: "${requirements}"`);
+            log(`📊 Parameters: Min Experience: ${minExperience} years, Limit: ${limit}`);
+            
+            try {
+                const requestData = {
+                    requirements: requirements,
+                    min_experience: minExperience,
+                    limit: limit
+                };
+                
+                log(`📤 Sending request: ${JSON.stringify(requestData)}`);
+                
+                const response = await fetch(`${API_BASE}/shortlist-candidates`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                log(`📥 Response status: ${response.status} ${response.statusText}`);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    log(`❌ Server error: ${errorText}`, 'error');
+                    return;
+                }
+                
+                const data = await response.json();
+                log(`📋 Response data: ${JSON.stringify(data, null, 2)}`);
+                
+                if (data.success) {
+                    log(`✅ Found ${data.candidates?.length || 0} candidates`, 'success');
+                    
+                    if (data.candidates && data.candidates.length > 0) {
+                        data.candidates.forEach((candidate, index) => {
+                            log(`👤 ${index + 1}. ${candidate.name} - Score: ${(candidate.score * 100).toFixed(1)}% - Experience: ${candidate.experience} years`, 'success');
+                        });
+                    } else {
+                        log('ℹ️ No candidates found matching the criteria');
+                    }
+                } else {
+                    log(`❌ API returned error: ${data.error}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Request failed: ${error.message}`, 'error');
+                log('💡 Check if the server is running and the API endpoint exists');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '🔍 Test Find Candidates';
+            }
+        }
+        
+        // Test server connection on page load
+        window.addEventListener('load', () => {
+            log('🚀 Debug page loaded');
+            testServerConnection();
+        });
+    </script>
+</body>
+</html>

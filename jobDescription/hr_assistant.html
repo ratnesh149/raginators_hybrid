@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧠 Agentic HR Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            min-height: 600px;
+        }
+
+        .chat-section {
+            padding: 30px;
+            border-right: 1px solid #eee;
+        }
+
+        .tools-section {
+            padding: 30px;
+            background: #f8f9fa;
+        }
+
+        .section-title {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chat-container {
+            height: 400px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            overflow-y: auto;
+            padding: 20px;
+            background: #fff;
+            margin-bottom: 20px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 16px;
+            border-radius: 18px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+        .user-message {
+            background: #4facfe;
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+
+        .assistant-message {
+            background: #f1f3f4;
+            color: #333;
+            margin-right: auto;
+        }
+
+        .chat-input-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #ddd;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .chat-input:focus {
+            border-color: #4facfe;
+        }
+
+        .send-btn {
+            padding: 12px 24px;
+            background: #4facfe;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .send-btn:hover {
+            background: #3a8bfe;
+        }
+
+        .send-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .tool-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s;
+        }
+
+        .tool-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .tool-card h3 {
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #4facfe;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .tool-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            width: 100%;
+            transition: transform 0.2s;
+        }
+
+        .tool-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .tool-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result-area {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #4facfe;
+            display: none;
+        }
+
+        .result-area.show {
+            display: block;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4facfe;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .quick-btn {
+            padding: 8px 16px;
+            background: #e9ecef;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        .quick-btn:hover {
+            background: #4facfe;
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .chat-section {
+                border-right: none;
+                border-bottom: 1px solid #eee;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧠 Agentic HR Assistant</h1>
+            <p>AI-powered hiring companion with intelligent candidate matching</p>
+        </div>
+        
+        <div class="main-content">
+            <!-- Chat Section -->
+            <div class="chat-section">
+                <div class="section-title">
+                    💬 Chat with HR Assistant
+                </div>
+                
+                <div class="quick-actions">
+                    <button class="quick-btn" onclick="sendQuickMessage('I want to hire a frontend developer')">
+                        Frontend Developer
+                    </button>
+                    <button class="quick-btn" onclick="sendQuickMessage('Find candidates with Python skills')">
+                        Python Candidates
+                    </button>
+                    <button class="quick-btn" onclick="sendQuickMessage('Create a job description for data scientist')">
+                        Data Scientist JD
+                    </button>
+                </div>
+                
+                <div class="chat-container" id="chatContainer">
+                    <div class="message assistant-message">
+                        Hello! I'm your AI HR assistant. I can help you with:
+                        <br>• Creating job descriptions
+                        <br>• Shortlisting candidates
+                        <br>• Generating hiring checklists
+                        <br>• Finding similar roles
+                        <br><br>How can I assist you today?
+                    </div>
+                </div>
+                
+                <div class="chat-input-container">
+                    <input type="text" class="chat-input" id="chatInput" 
+                           placeholder="Ask me about hiring, job descriptions, or candidate matching..."
+                           onkeypress="handleChatKeyPress(event)">
+                    <button class="send-btn" id="sendBtn" onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+            
+            <!-- Tools Section -->
+            <div class="tools-section">
+                <div class="section-title">
+                    🛠️ HR Tools
+                </div>
+                
+                <!-- Candidate Shortlisting Tool -->
+                <div class="tool-card">
+                    <h3>🎯 Candidate Shortlisting</h3>
+                    <div class="form-group">
+                        <label for="requirements">Job Requirements:</label>
+                        <textarea id="requirements" placeholder="e.g., React, TypeScript, 5+ years experience"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="minExperience">Minimum Experience (years):</label>
+                        <input type="number" id="minExperience" value="0" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="candidateLimit">Number of Candidates:</label>
+                        <select id="candidateLimit">
+                            <option value="5">Top 5</option>
+                            <option value="10">Top 10</option>
+                            <option value="15">Top 15</option>
+                        </select>
+                    </div>
+                    <button class="tool-btn" onclick="shortlistCandidates()">Find Candidates</button>
+                    <div class="result-area" id="candidateResults"></div>
+                </div>
+                
+                <!-- Job Description Generator -->
+                <div class="tool-card">
+                    <h3>📝 Job Description Generator</h3>
+                    <div class="form-group">
+                        <label for="roleTitle">Role Title:</label>
+                        <input type="text" id="roleTitle" placeholder="e.g., Senior Frontend Developer">
+                    </div>
+                    <div class="form-group">
+                        <label for="department">Department:</label>
+                        <select id="department">
+                            <option value="">Select Department</option>
+                            <option value="Engineering">Engineering</option>
+                            <option value="Product">Product</option>
+                            <option value="Design">Design</option>
+                            <option value="Marketing">Marketing</option>
+                            <option value="Sales">Sales</option>
+                            <option value="HR">HR</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="experienceLevel">Experience Level:</label>
+                        <select id="experienceLevel">
+                            <option value="">Select Level</option>
+                            <option value="Junior">Junior</option>
+                            <option value="Mid-level">Mid-level</option>
+                            <option value="Senior">Senior</option>
+                            <option value="Lead">Lead</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="jdRequirements">Specific Requirements:</label>
+                        <textarea id="jdRequirements" placeholder="Skills, technologies, qualifications..."></textarea>
+                    </div>
+                    <button class="tool-btn" onclick="generateJobDescription()">Generate JD</button>
+                    <div class="result-area" id="jdResults"></div>
+                </div>
+                
+                <!-- Hiring Checklist Generator -->
+                <div class="tool-card">
+                    <h3>✅ Hiring Checklist</h3>
+                    <div class="form-group">
+                        <label for="checklistRole">Role Title:</label>
+                        <input type="text" id="checklistRole" placeholder="e.g., Backend Developer">
+                    </div>
+                    <div class="form-group">
+                        <label for="checklistRequirements">Key Requirements:</label>
+                        <textarea id="checklistRequirements" placeholder="Important skills and qualifications..."></textarea>
+                    </div>
+                    <button class="tool-btn" onclick="generateChecklist()">Generate Checklist</button>
+                    <div class="result-area" id="checklistResults"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+        
+        // Chat functionality
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            addMessageToChat('user', message);
+            input.value = '';
+            
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<span class="loading"></span>';
+            
+            fetch(`${API_BASE}/chat`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ message: message })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    addMessageToChat('assistant', data.response);
+                } else {
+                    addMessageToChat('assistant', 'Sorry, I encountered an error. Please try again.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                addMessageToChat('assistant', 'Sorry, I encountered a connection error. Please try again.');
+            })
+            .finally(() => {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = 'Send';
+            });
+        }
+        
+        function sendQuickMessage(message) {
+            document.getElementById('chatInput').value = message;
+            sendMessage();
+        }
+        
+        function addMessageToChat(role, content) {
+            const chatContainer = document.getElementById('chatContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}-message`;
+            messageDiv.innerHTML = content.replace(/\n/g, '<br>');
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        function handleChatKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+        
+        // Candidate shortlisting
+        function shortlistCandidates() {
+            const requirements = document.getElementById('requirements').value.trim();
+            const minExperience = parseInt(document.getElementById('minExperience').value) || 0;
+            const limit = parseInt(document.getElementById('candidateLimit').value) || 5;
+            
+            if (!requirements) {
+                alert('Please enter job requirements');
+                return;
+            }
+            
+            const btn = event.target;
+            const resultArea = document.getElementById('candidateResults');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Finding Candidates...';
+            resultArea.classList.remove('show');
+            
+            fetch(`${API_BASE}/shortlist-candidates`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    requirements: requirements,
+                    min_experience: minExperience,
+                    limit: limit
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayCandidateResults(data, resultArea);
+                } else {
+                    resultArea.innerHTML = `<strong>Error:</strong> ${data.error}`;
+                    resultArea.classList.add('show');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                resultArea.innerHTML = '<strong>Error:</strong> Failed to fetch candidates';
+                resultArea.classList.add('show');
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = 'Find Candidates';
+            });
+        }
+        
+        function displayCandidateResults(data, resultArea) {
+            let html = '<h4>🎯 Candidate Shortlist</h4>';
+            
+            if (data.candidates && data.candidates.length > 0) {
+                data.candidates.forEach((candidate, index) => {
+                    html += `
+                        <div style="margin: 15px 0; padding: 15px; background: white; border-radius: 8px; border-left: 4px solid #4facfe;">
+                            <strong>${index + 1}. ${candidate.name}</strong><br>
+                            📊 Match Score: ${(candidate.score * 100).toFixed(1)}%<br>
+                            💼 Experience: ${candidate.experience} years<br>
+                            📧 Email: <a href="mailto:${candidate.email}" style="color: #4facfe;">${candidate.email}</a><br>
+                            📞 Phone: <a href="tel:${candidate.phone}" style="color: #4facfe;">${candidate.phone}</a><br>
+                            🔧 Skills: ${candidate.skills}
+                        </div>
+                    `;
+                });
+                
+                if (data.summary) {
+                    html += `
+                        <div style="margin-top: 20px; padding: 15px; background: #e8f4fd; border-radius: 8px;">
+                            <strong>📈 Summary:</strong><br>
+                            • Total candidates found: ${data.total_found}<br>
+                            • Candidates shown: ${data.candidates.length}<br>
+                            • Average match score: ${(data.candidates.reduce((sum, c) => sum + c.score, 0) / data.candidates.length * 100).toFixed(1)}%
+                        </div>
+                    `;
+                }
+            } else {
+                html += '<p>No candidates found matching your requirements.</p>';
+            }
+            
+            resultArea.innerHTML = html;
+            resultArea.classList.add('show');
+        }
+        
+        // Job description generation
+        function generateJobDescription() {
+            const roleTitle = document.getElementById('roleTitle').value.trim();
+            const department = document.getElementById('department').value;
+            const experienceLevel = document.getElementById('experienceLevel').value;
+            const requirements = document.getElementById('jdRequirements').value.trim();
+            
+            if (!roleTitle) {
+                alert('Please enter a role title');
+                return;
+            }
+            
+            const btn = event.target;
+            const resultArea = document.getElementById('jdResults');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Generating...';
+            resultArea.classList.remove('show');
+            
+            fetch(`${API_BASE}/generate-job-description`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    role_title: roleTitle,
+                    department: department,
+                    experience_level: experienceLevel,
+                    requirements: requirements
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    resultArea.innerHTML = `<h4>📝 Generated Job Description</h4><div style="white-space: pre-wrap;">${data.job_description}</div>`;
+                } else {
+                    resultArea.innerHTML = `<strong>Error:</strong> ${data.error}`;
+                }
+                resultArea.classList.add('show');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                resultArea.innerHTML = '<strong>Error:</strong> Failed to generate job description';
+                resultArea.classList.add('show');
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = 'Generate JD';
+            });
+        }
+        
+        // Checklist generation
+        function generateChecklist() {
+            const roleTitle = document.getElementById('checklistRole').value.trim();
+            const requirements = document.getElementById('checklistRequirements').value.trim();
+            
+            if (!roleTitle) {
+                alert('Please enter a role title');
+                return;
+            }
+            
+            const btn = event.target;
+            const resultArea = document.getElementById('checklistResults');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Generating...';
+            resultArea.classList.remove('show');
+            
+            fetch(`${API_BASE}/generate-checklist`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    role_title: roleTitle,
+                    requirements: requirements
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    resultArea.innerHTML = `<h4>✅ Generated Hiring Checklist</h4><div style="white-space: pre-wrap;">${data.checklist}</div>`;
+                } else {
+                    resultArea.innerHTML = `<strong>Error:</strong> ${data.error}`;
+                }
+                resultArea.classList.add('show');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                resultArea.innerHTML = '<strong>Error:</strong> Failed to generate checklist';
+                resultArea.classList.add('show');
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = 'Generate Checklist';
+            });
+        }
+    </script>
+</body>
+</html>
