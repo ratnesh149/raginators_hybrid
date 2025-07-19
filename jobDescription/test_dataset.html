@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dataset Test</title>
+</head>
+<body>
+    <h1>Dataset Loading Test</h1>
+    <div id="results"></div>
+    
+    <script src="dataset.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const resultsDiv = document.getElementById('results');
+            
+            if (window.csvDataset) {
+                resultsDiv.innerHTML = `
+                    <h2>✅ Dataset Loaded Successfully!</h2>
+                    <p><strong>Total Candidates:</strong> ${window.csvDataset.length}</p>
+                    <h3>Sample Candidate:</h3>
+                    <pre>${JSON.stringify(window.csvDataset[0], null, 2)}</pre>
+                `;
+            } else {
+                resultsDiv.innerHTML = `
+                    <h2>❌ Dataset Not Loaded</h2>
+                    <p>The dataset.js file may not be loading properly.</p>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>

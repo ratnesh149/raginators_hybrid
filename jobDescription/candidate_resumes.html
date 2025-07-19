@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Candidate Resumes/CVs</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+        }
+
+        .home-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 10px 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .home-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .controls {
+            margin-bottom: 30px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #e9ecef;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            background: white;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: #4facfe;
+            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .search-box::placeholder {
+            color: #9ca3af;
+            font-style: italic;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .filter-label {
+            font-weight: 600;
+            color: #495057;
+            white-space: nowrap;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            white-space: nowrap;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border: 2px solid transparent;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #2196f3 0%, #00d4ff 100%);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: 2px solid transparent;
+        }
+
+        .btn-secondary:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+        }
+
+        #searchInfo {
+            color: #6c757d;
+            font-weight: 600;
+            padding: 8px 16px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+            white-space: nowrap;
+            font-size: 0.9em;
+        }
+
+        .search-controls-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            width: 100%;
+            flex-wrap: wrap;
+        }
+
+        .search-input-group {
+            flex: 1;
+            min-width: 300px;
+            position: relative;
+        }
+
+        .search-input-group::before {
+            content: "🔍";
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            z-index: 1;
+        }
+
+        .search-input-group .search-box {
+            padding-left: 40px;
+            padding-right: 40px;
+        }
+
+        .clear-search-btn {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            z-index: 2;
+        }
+
+        .clear-search-btn:hover {
+            background: #c82333;
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        .filter-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .candidates-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 25px;
+        }
+
+        .candidate-card {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 15px;
+            padding: 25px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .candidate-card:hover {
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            transform: translateY(-5px);
+        }
+
+        .candidate-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .candidate-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+
+        .candidate-info h3 {
+            color: #333;
+            font-size: 1.4em;
+            margin-bottom: 5px;
+        }
+
+        .candidate-role {
+            color: #6c757d;
+            font-weight: 600;
+        }
+
+        .candidate-id {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #e9ecef;
+            color: #6c757d;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+
+        .decision-badge {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .decision-select {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .decision-reject {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .resume-section {
+            margin-bottom: 15px;
+        }
+
+        .resume-section h4 {
+            color: #495057;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+        }
+
+        .resume-content {
+            color: #6c757d;
+            line-height: 1.5;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #4facfe;
+        }
+
+        .reason-section {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f1f3f4;
+            border-radius: 8px;
+        }
+
+        .reason-section h4 {
+            color: #495057;
+            margin-bottom: 8px;
+        }
+
+        .reason-content {
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .view-transcript-btn {
+            margin-top: 15px;
+            background: #6c757d;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+        }
+
+        .view-transcript-btn:hover {
+            background: #495057;
+        }
+
+        .transcript-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .transcript-content {
+            background: white;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 30px;
+            border-radius: 15px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 2em;
+            cursor: pointer;
+            color: #6c757d;
+        }
+
+        .close-btn:hover {
+            color: #333;
+        }
+
+        .no-candidates {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 30px 0;
+            gap: 10px;
+        }
+
+        .pagination button {
+            padding: 10px 15px;
+            border: 2px solid #e1e5e9;
+            background: white;
+            color: #6c757d;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .pagination button:hover:not(:disabled) {
+            background: #4facfe;
+            color: white;
+            border-color: #4facfe;
+        }
+
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .pagination button.active {
+            background: #4facfe;
+            color: white;
+            border-color: #4facfe;
+        }
+
+        .pagination-info {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 15px 25px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: center;
+            color: #495057;
+            font-weight: 600;
+            border: 1px solid #dee2e6;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .page-size-selector {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 20px 0;
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+        }
+
+        .page-size-selector label {
+            font-weight: 600;
+            color: #495057;
+            white-space: nowrap;
+        }
+
+        .page-size-selector select {
+            padding: 8px 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 6px;
+            background: white;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .page-size-selector select:focus {
+            outline: none;
+            border-color: #4facfe;
+            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+        }
+
+        .page-size-selector select:hover {
+            border-color: #4facfe;
+        }
+        @media (max-width: 768px) {
+            .candidates-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .controls {
+                padding: 15px;
+            }
+            
+            .search-controls-row {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 15px;
+            }
+            
+            .search-input-group {
+                min-width: auto;
+            }
+            
+            .filter-controls {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+            
+            .filter-group {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+            }
+            
+            .filter-group select {
+                min-width: auto;
+            }
+            
+            .action-buttons {
+                justify-content: center;
+            }
+            
+            .search-box {
+                min-width: auto;
+            }
+            
+            .home-btn {
+                position: static;
+                display: inline-block;
+                margin-bottom: 15px;
+            }
+            
+            .transcript-content {
+                margin: 20px auto;
+                padding: 20px;
+            }
+            
+            .pagination {
+                flex-wrap: wrap;
+                gap: 5px;
+            }
+            
+            .pagination button {
+                padding: 8px 12px;
+                font-size: 0.9em;
+            }
+            
+            .page-size-selector {
+                justify-content: center;
+                flex-direction: column;
+                text-align: center;
+                gap: 10px;
+            }
+            
+            #searchInfo {
+                text-align: center;
+                white-space: normal;
+            }
+        }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="index.html" class="home-btn">🏠 Home</a>
+            <h1>Candidate Resumes/CVs</h1>
+            <p>Browse candidate profiles and interview data</p>
+        </div>
+        
+        <div class="content">
+            <div class="controls">
+                <div class="search-controls-row">
+                    <div class="search-input-group">
+                        <input type="text" class="search-box" id="searchBox" placeholder="Search by name, role, skills, resume content, or decision...">
+                        <button class="clear-search-btn" id="clearSearchBtn" onclick="clearSearch()" title="Clear search" style="display: none;">
+                            ✕
+                        </button>
+                    </div>
+                    
+                    <div class="filter-controls">
+                        <div class="filter-group">
+                            <label class="filter-label" for="decisionFilter">Filter by:</label>
+                            <select id="decisionFilter" class="search-box" style="flex: 0 0 160px; min-width: 160px;">
+                                <option value="">All Decisions</option>
+                                <option value="select">✅ Selected</option>
+                                <option value="reject">❌ Rejected</option>
+                            </select>
+                        </div>
+                        
+                        <div id="searchInfo"></div>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" onclick="loadCandidates()" title="Refresh candidate data">
+                            🔄 Refresh
+                        </button>
+                        <button class="btn btn-secondary" onclick="showDatasetStats()" title="View dataset statistics">
+                            📊 Stats
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="statsPanel" style="display: none; background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                <h3>Dataset Statistics</h3>
+                <div id="statsContent"></div>
+            </div>
+            
+            <div id="loadingMessage" class="loading">
+                <h3>Loading candidate data from dataset.csv...</h3>
+                <p>Processing candidate resumes, interview transcripts, and hiring decisions</p>
+                <p><small>Dataset contains 10,000+ candidate records</small></p>
+            </div>
+            
+            <div class="page-size-selector">
+                <label for="pageSize">Candidates per page:</label>
+                <select id="pageSize" onchange="changePageSize()">
+                    <option value="6">6 per page</option>
+                    <option value="12" selected>12 per page</option>
+                    <option value="24">24 per page</option>
+                    <option value="50">50 per page</option>
+                </select>
+            </div>
+            
+            <div class="pagination-info" id="paginationInfo">
+                <!-- Pagination info will be displayed here -->
+            </div>
+            
+            <div id="candidatesContainer" class="candidates-grid">
+                <!-- Candidates will be loaded here -->
+            </div>
+            
+            <div class="pagination" id="paginationControls">
+                <!-- Pagination buttons will be generated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Transcript Modal -->
+    <div id="transcriptModal" class="transcript-modal">
+        <div class="transcript-content">
+            <button class="close-btn" onclick="closeTranscript()">&times;</button>
+            <h2 id="transcriptTitle">Interview Transcript</h2>
+            <div id="transcriptText"></div>
+        </div>
+    </div>
+
+    <script src="dataset.js"></script>
+    <script>
+        let candidatesData = [];
+        let filteredCandidates = [];
+        let currentPage = 1;
+        let pageSize = 12;
+        let totalPages = 1;
+
+        // Sample data structure matching the actual dataset.csv format
+        const sampleCandidates = [
+            {
+                ID: "jasojo159",
+                Name: "Jason Jones",
+                Role: "E-commerce Specialist",
+                Resume: "Here's a professional resume for Jason Jones:\n\nJason Jones\nE-commerce Specialist\n\nContact Information:\nEmail: jason.jones@email.com\nPhone: (555) 123-4567\nLinkedIn: linkedin.com/in/jasonjones\n\nProfessional Summary:\nExperienced e-commerce professional with 3+ years in online retail management. Skilled in customer service, product listing optimization, and marketplace management. Proven track record of increasing sales and improving customer satisfaction.",
+                decision: "reject",
+                Reason_for_decision: "Lacked leadership skills for a senior position.",
+                Transcript: "Interviewer: Good morning, Jason. It's great to meet you. Welcome to the interview for the E-commerce Specialist role at our company.\n\nJason Jones: Good morning. Thank you for having me. It's a pleasure to be here.\n\nInterviewer: Can you tell me about your experience in e-commerce?\n\nJason Jones: I have about 3 years of experience working with online marketplaces like Amazon and eBay. I've handled customer service, product listings, and inventory management.",
+                Job_Description: "Be part of a passionate team at the forefront of e-commerce as an E-commerce Specialist, delivering innovative solutions and driving business growth."
+            },
+            {
+                ID: "marsmith001",
+                Name: "Maria Smith",
+                Role: "Data Scientist",
+                Resume: "Maria Smith\nData Scientist\n\nContact Information:\nEmail: maria.smith@email.com\nPhone: (555) 987-6543\n\nEducation:\nM.S. in Data Science, Stanford University\nB.S. in Mathematics, UC Berkeley\n\nSkills:\n- Python, R, SQL\n- Machine Learning\n- Statistical Analysis\n- Data Visualization\n\nExperience:\n5+ years in data analysis and machine learning model development.",
+                decision: "select",
+                Reason_for_decision: "Strong technical background and excellent problem-solving skills. Perfect fit for our data science team.",
+                Transcript: "Interviewer: Thank you for joining us today, Maria. Can you walk us through your experience with machine learning?\n\nMaria Smith: Certainly. I've been working with ML for over 5 years, focusing on predictive modeling and natural language processing...",
+                Job_Description: "Join our data science team to develop cutting-edge machine learning solutions and drive data-driven decision making."
+            },
+            {
+                ID: "johndoe123",
+                Name: "John Doe",
+                Role: "Software Engineer",
+                Resume: "John Doe\nSoftware Engineer\n\nContact Information:\nEmail: john.doe@email.com\nPhone: (555) 456-7890\n\nTechnical Skills:\n- JavaScript, Python, Java\n- React, Node.js, Django\n- AWS, Docker, Kubernetes\n- Git, CI/CD\n\nExperience:\n4 years of full-stack development experience building scalable web applications.",
+                decision: "select",
+                Reason_for_decision: "Excellent technical skills and strong communication abilities. Great addition to our engineering team.",
+                Transcript: "Interviewer: Hi John, let's start by discussing your technical background and recent projects.\n\nJohn Doe: Sure! I've been working as a full-stack developer for 4 years, primarily using React and Node.js...",
+                Job_Description: "Software Engineer position requiring full-stack development skills with focus on scalable web applications and modern technologies."
+            }
+        ];
+
+        function parseCSV(csvText) {
+            const lines = csvText.split('\n');
+            if (lines.length < 2) return [];
+            
+            const headers = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase());
+            const candidates = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                if (lines[i].trim()) {
+                    const values = parseCSVLine(lines[i]);
+                    if (values.length >= headers.length - 2) { // Allow some flexibility
+                        const candidate = {};
+                        headers.forEach((header, index) => {
+                            if (values[index] !== undefined) {
+                                candidate[header] = values[index].trim().replace(/^"|"$/g, ''); // Remove surrounding quotes
+                            }
+                        });
+                        
+                        // Normalize field names for consistency
+                        if (candidate.id) candidate.ID = candidate.id;
+                        if (candidate.reason_for_decision) candidate.reason = candidate.reason_for_decision;
+                        if (candidate.job_description) candidate.jobDescription = candidate.job_description;
+                        
+                        candidates.push(candidate);
+                    }
+                }
+            }
+            
+            console.log('Parsed candidates:', candidates.slice(0, 3)); // Log first 3 for debugging
+            return candidates;
+        }
+
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            let i = 0;
+            
+            while (i < line.length) {
+                const char = line[i];
+                
+                if (char === '"') {
+                    if (inQuotes && line[i + 1] === '"') {
+                        // Handle escaped quotes
+                        current += '"';
+                        i += 2;
+                        continue;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current);
+                    current = '';
+                } else {
+                    current += char;
+                }
+                i++;
+            }
+            result.push(current);
+            return result;
+        }
+
+        async function loadCandidates() {
+            document.getElementById('loadingMessage').style.display = 'block';
+            document.getElementById('candidatesContainer').innerHTML = '';
+
+            try {
+                // First try to load from the JavaScript dataset
+                if (window.csvDataset && window.csvDataset.length > 0) {
+                    candidatesData = window.csvDataset;
+                    console.log(`Loaded ${candidatesData.length} candidates from JavaScript dataset`);
+                } else {
+                    // Fallback: try to fetch CSV file
+                    const response = await fetch('dataset.csv');
+                    if (response.ok) {
+                        const csvText = await response.text();
+                        candidatesData = parseCSV(csvText);
+                        console.log(`Loaded ${candidatesData.length} candidates from CSV file`);
+                    } else {
+                        throw new Error('Could not load CSV file');
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading data:', error);
+                
+                // Use sample data as final fallback
+                candidatesData = sampleCandidates;
+                console.log(`Using ${candidatesData.length} sample candidates as fallback`);
+                
+                // Show informative message
+                document.getElementById('loadingMessage').innerHTML = `
+                    <h3>Using Sample Dataset</h3>
+                    <p>Loaded ${candidatesData.length} sample candidates for demonstration.</p>
+                    <p><small>In production, this would connect to your actual candidate database.</small></p>
+                `;
+                
+                setTimeout(() => {
+                    document.getElementById('loadingMessage').style.display = 'none';
+                }, 2000);
+            }
+
+            document.getElementById('loadingMessage').style.display = 'none';
+            filteredCandidates = candidatesData;
+            displayCandidates();
+            
+            // Show success message
+            console.log(`Successfully loaded ${candidatesData.length} candidates`);
+        }
+
+        function displayCandidates() {
+            const container = document.getElementById('candidatesContainer');
+            const searchInfo = document.getElementById('searchInfo');
+            const paginationInfo = document.getElementById('paginationInfo');
+            
+            // Calculate pagination
+            totalPages = Math.ceil(filteredCandidates.length / pageSize);
+            if (currentPage > totalPages) currentPage = 1;
+            
+            const startIndex = (currentPage - 1) * pageSize;
+            const endIndex = startIndex + pageSize;
+            const currentPageCandidates = filteredCandidates.slice(startIndex, endIndex);
+            
+            // Update search results counter
+            if (searchInfo) {
+                const searchTerm = document.getElementById('searchBox').value;
+                const decisionFilter = document.getElementById('decisionFilter').value;
+                
+                if (searchTerm || decisionFilter) {
+                    searchInfo.textContent = `Showing ${filteredCandidates.length} of ${candidatesData.length} candidates`;
+                } else {
+                    searchInfo.textContent = `Total: ${candidatesData.length} candidates`;
+                }
+            }
+            
+            // Update pagination info
+            if (paginationInfo) {
+                if (filteredCandidates.length > 0) {
+                    paginationInfo.innerHTML = `
+                        Showing ${startIndex + 1}-${Math.min(endIndex, filteredCandidates.length)} of ${filteredCandidates.length} candidates
+                        ${totalPages > 1 ? `(Page ${currentPage} of ${totalPages})` : ''}
+                    `;
+                } else {
+                    paginationInfo.innerHTML = 'No candidates to display';
+                }
+            }
+            
+            if (filteredCandidates.length === 0) {
+                container.innerHTML = `
+                    <div class="no-candidates">
+                        <h3>No Candidates Found</h3>
+                        <p>No candidate data matches your search criteria.</p>
+                        <p>Total candidates in dataset: ${candidatesData.length}</p>
+                        <button onclick="clearFilters()" class="btn btn-primary" style="margin-top: 15px;">Clear Filters</button>
+                    </div>
+                `;
+                updatePaginationControls();
+                return;
+            }
+
+            container.innerHTML = currentPageCandidates.map((candidate, index) => {
+                // Handle actual dataset field names (capitalized)
+                const candidateId = candidate.ID || candidate.id || `candidate_${startIndex + index}`;
+                const candidateName = candidate.Name || candidate.name || 'Unknown Candidate';
+                const candidateRole = candidate.Role || candidate.role || 'No role specified';
+                const candidateResume = candidate.Resume || candidate.resume || 'No resume information available';
+                const candidateDecision = candidate.decision || 'unknown';
+                const candidateReason = candidate.Reason_for_decision || candidate.reason_for_decision || candidate.reason || '';
+                const candidateTranscript = candidate.Transcript || candidate.transcript || '';
+                
+                const initials = candidateName.split(' ').map(n => n[0] || '').join('').toUpperCase() || 'N/A';
+                const decisionClass = `decision-${candidateDecision.toLowerCase()}`;
+                
+                return `
+                    <div class="candidate-card">
+                        <div class="candidate-id">${candidateId}</div>
+                        <div class="decision-badge ${decisionClass}">
+                            ${candidateDecision.toUpperCase()}
+                        </div>
+                        
+                        <div class="candidate-header">
+                            <div class="candidate-avatar">${initials}</div>
+                            <div class="candidate-info">
+                                <h3>${candidateName}</h3>
+                                <div class="candidate-role">${candidateRole}</div>
+                            </div>
+                        </div>
+
+                        <div class="resume-section">
+                            <h4>📄 Resume/CV</h4>
+                            <div class="resume-content">
+                                ${candidateResume.length > 400 ? 
+                                    candidateResume.substring(0, 400) + '... <em>(click transcript to see full details)</em>' : 
+                                    candidateResume}
+                            </div>
+                        </div>
+
+                        ${candidateReason ? `
+                            <div class="reason-section">
+                                <h4>💭 Decision Reason</h4>
+                                <div class="reason-content">
+                                    ${candidateReason.length > 200 ? 
+                                        candidateReason.substring(0, 200) + '...' : 
+                                        candidateReason}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        ${candidateTranscript ? `
+                            <button class="view-transcript-btn" onclick="showTranscript('${candidateId}', '${candidateName.replace(/'/g, "\\'")}')">
+                                📝 View Interview Transcript
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+            
+            // Update pagination controls
+            updatePaginationControls();
+            
+            // Update page info
+            console.log(`Displaying ${currentPageCandidates.length} candidates (page ${currentPage} of ${totalPages})`);
+        }
+        
+        function clearFilters() {
+            document.getElementById('searchBox').value = '';
+            document.getElementById('decisionFilter').value = '';
+            document.getElementById('clearSearchBtn').style.display = 'none';
+            currentPage = 1;
+            applyFilters();
+        }
+        
+        function clearSearch() {
+            document.getElementById('searchBox').value = '';
+            document.getElementById('clearSearchBtn').style.display = 'none';
+            currentPage = 1;
+            applyFilters();
+        }
+        
+        // Show/hide clear search button based on input
+        document.getElementById('searchBox').addEventListener('input', function(e) {
+            const clearBtn = document.getElementById('clearSearchBtn');
+            if (e.target.value.length > 0) {
+                clearBtn.style.display = 'flex';
+            } else {
+                clearBtn.style.display = 'none';
+            }
+            applyFilters();
+        });
+        
+        function updatePaginationControls() {
+            const paginationContainer = document.getElementById('paginationControls');
+            
+            if (totalPages <= 1) {
+                paginationContainer.innerHTML = '';
+                return;
+            }
+            
+            let paginationHTML = '';
+            
+            // Previous button
+            paginationHTML += `
+                <button onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
+                    ← Previous
+                </button>
+            `;
+            
+            // Page numbers
+            const maxVisiblePages = 5;
+            let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+            
+            // Adjust start page if we're near the end
+            if (endPage - startPage < maxVisiblePages - 1) {
+                startPage = Math.max(1, endPage - maxVisiblePages + 1);
+            }
+            
+            // First page and ellipsis
+            if (startPage > 1) {
+                paginationHTML += `<button onclick="goToPage(1)">1</button>`;
+                if (startPage > 2) {
+                    paginationHTML += `<button disabled>...</button>`;
+                }
+            }
+            
+            // Page numbers
+            for (let i = startPage; i <= endPage; i++) {
+                paginationHTML += `
+                    <button onclick="goToPage(${i})" ${i === currentPage ? 'class="active"' : ''}>
+                        ${i}
+                    </button>
+                `;
+            }
+            
+            // Last page and ellipsis
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    paginationHTML += `<button disabled>...</button>`;
+                }
+                paginationHTML += `<button onclick="goToPage(${totalPages})">${totalPages}</button>`;
+            }
+            
+            // Next button
+            paginationHTML += `
+                <button onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
+                    Next →
+                </button>
+            `;
+            
+            paginationContainer.innerHTML = paginationHTML;
+        }
+        
+        function goToPage(page) {
+            if (page >= 1 && page <= totalPages && page !== currentPage) {
+                currentPage = page;
+                displayCandidates();
+                
+                // Scroll to top of candidates section
+                document.getElementById('candidatesContainer').scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start' 
+                });
+            }
+        }
+        
+        function changePageSize() {
+            pageSize = parseInt(document.getElementById('pageSize').value);
+            currentPage = 1;
+            displayCandidates();
+        }
+
+        function showTranscript(candidateId, candidateName) {
+            const candidate = candidatesData.find(c => 
+                (c.id || c.ID) === candidateId
+            );
+            
+            if (candidate) {
+                const transcript = candidate.transcript || candidate.Transcript || '';
+                if (transcript) {
+                    document.getElementById('transcriptTitle').textContent = `Interview Transcript - ${candidateName}`;
+                    
+                    // Format the transcript for better readability
+                    const formattedTranscript = transcript
+                        .replace(/Interviewer:/g, '<strong style="color: #4facfe;">Interviewer:</strong>')
+                        .replace(/([A-Z][a-z]+ [A-Z][a-z]+):/g, '<strong style="color: #667eea;">$1:</strong>')
+                        .replace(/\n\n/g, '<br><br>')
+                        .replace(/\n/g, '<br>');
+                    
+                    document.getElementById('transcriptText').innerHTML = `
+                        <div style="line-height: 1.8; color: #333; font-size: 1.1em;">
+                            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                                <strong>Candidate:</strong> ${candidateName}<br>
+                                <strong>Position:</strong> ${candidate.role || candidate.Role || 'N/A'}<br>
+                                <strong>Decision:</strong> <span style="color: ${getDecisionColor(candidate.decision || candidate.Decision)}">${(candidate.decision || candidate.Decision || 'Pending').toUpperCase()}</span>
+                            </div>
+                            <div style="white-space: pre-wrap;">
+                                ${formattedTranscript}
+                            </div>
+                        </div>
+                    `;
+                    document.getElementById('transcriptModal').style.display = 'block';
+                } else {
+                    alert('No transcript available for this candidate.');
+                }
+            } else {
+                alert('Candidate not found.');
+            }
+        }
+        
+        function getDecisionColor(decision) {
+            switch((decision || '').toLowerCase()) {
+                case 'select': return '#28a745';
+                case 'reject': return '#dc3545';
+                default: return '#6c757d';
+            }
+        }
+
+        function closeTranscript() {
+            document.getElementById('transcriptModal').style.display = 'none';
+        }
+
+        // Enhanced search and filter functionality
+        function applyFilters() {
+            const searchTerm = document.getElementById('searchBox').value.toLowerCase();
+            const decisionFilter = document.getElementById('decisionFilter').value.toLowerCase();
+            
+            if (!candidatesData || candidatesData.length === 0) {
+                console.log('No candidate data available for filtering');
+                return;
+            }
+            
+            filteredCandidates = candidatesData.filter(candidate => {
+                // Search filter - search across all relevant fields
+                const searchFields = [
+                    candidate.Name || candidate.name || '',
+                    candidate.Role || candidate.role || '',
+                    candidate.ID || candidate.id || '',
+                    candidate.Resume || candidate.resume || '',
+                    candidate.decision || '',
+                    candidate.Reason_for_decision || candidate.reason_for_decision || candidate.reason || '',
+                    candidate.Transcript || candidate.transcript || '',
+                    candidate.Job_Description || candidate.job_description || candidate.jobDescription || ''
+                ];
+                
+                const matchesSearch = searchTerm === '' || searchFields.some(field => 
+                    field.toLowerCase().includes(searchTerm)
+                );
+                
+                // Decision filter
+                const candidateDecision = (candidate.decision || 'unknown').toLowerCase();
+                const matchesDecision = decisionFilter === '' || candidateDecision === decisionFilter;
+                
+                return matchesSearch && matchesDecision;
+            });
+            
+            // Reset to first page when filtering
+            currentPage = 1;
+            
+            displayCandidates();
+            
+            // Update results info
+            const resultsCount = filteredCandidates.length;
+            const totalCount = candidatesData.length;
+            console.log(`Filtered results: ${resultsCount} of ${totalCount} candidates`);
+            
+            // Update search info in UI
+            if (searchTerm || decisionFilter) {
+                const searchInfo = document.getElementById('searchInfo');
+                if (searchInfo) {
+                    searchInfo.textContent = `Showing ${resultsCount} of ${totalCount} candidates`;
+                }
+            }
+        }
+
+        document.getElementById('decisionFilter').addEventListener('change', applyFilters);
+
+        function showDatasetStats() {
+            const statsPanel = document.getElementById('statsPanel');
+            const statsContent = document.getElementById('statsContent');
+            
+            if (candidatesData.length === 0) {
+                statsContent.innerHTML = '<p>No data available for statistics.</p>';
+                statsPanel.style.display = 'block';
+                return;
+            }
+            
+            // Calculate statistics
+            const totalCandidates = candidatesData.length;
+            const decisions = {};
+            const roles = {};
+            
+            candidatesData.forEach(candidate => {
+                const decision = (candidate.decision || 'pending').toLowerCase();
+                const role = candidate.role || 'Unknown';
+                
+                decisions[decision] = (decisions[decision] || 0) + 1;
+                roles[role] = (roles[role] || 0) + 1;
+            });
+            
+            // Generate stats HTML
+            let statsHTML = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                    <div>
+                        <h4>📊 Total Candidates</h4>
+                        <p style="font-size: 2em; color: #4facfe; font-weight: bold;">${totalCandidates}</p>
+                    </div>
+                    
+                    <div>
+                        <h4>✅ Hiring Decisions</h4>
+                        <ul style="list-style: none; padding: 0;">
+            `;
+            
+            Object.entries(decisions).forEach(([decision, count]) => {
+                const percentage = ((count / totalCandidates) * 100).toFixed(1);
+                const color = getDecisionColor(decision);
+                statsHTML += `
+                    <li style="margin: 5px 0;">
+                        <span style="color: ${color}; font-weight: bold;">${decision.toUpperCase()}:</span> 
+                        ${count} (${percentage}%)
+                    </li>
+                `;
+            });
+            
+            statsHTML += `
+                        </ul>
+                    </div>
+                    
+                    <div>
+                        <h4>💼 Top Roles</h4>
+                        <ul style="list-style: none; padding: 0;">
+            `;
+            
+            // Show top 5 roles
+            const sortedRoles = Object.entries(roles)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 5);
+                
+            sortedRoles.forEach(([role, count]) => {
+                statsHTML += `
+                    <li style="margin: 5px 0;">
+                        <strong>${role}:</strong> ${count}
+                    </li>
+                `;
+            });
+            
+            statsHTML += `
+                        </ul>
+                    </div>
+                </div>
+                <button onclick="document.getElementById('statsPanel').style.display='none'" 
+                        style="margin-top: 15px; padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                    Close Stats
+                </button>
+            `;
+            
+            statsContent.innerHTML = statsHTML;
+            statsPanel.style.display = 'block';
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('transcriptModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeTranscript();
+            }
+        });
+
+        // Load candidates when page loads
+        document.addEventListener('DOMContentLoaded', loadCandidates);
+    </script>
+</body>
+</html>

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Job Applications</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+        }
+
+        .home-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 10px 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .home-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .controls {
+            margin-bottom: 30px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #4facfe;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #ff4757;
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .application-card {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .application-card:hover {
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .position-title {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .timestamp {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+
+        .card-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .field {
+            margin-bottom: 10px;
+        }
+
+        .field-label {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 5px;
+        }
+
+        .field-value {
+            color: #6c757d;
+            line-height: 1.4;
+        }
+
+        .no-applications {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+
+        .no-applications h3 {
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #4facfe;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .card-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .home-btn {
+                position: static;
+                display: inline-block;
+                margin-bottom: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="index.html" class="home-btn">🏠 Home</a>
+            <h1>Job Applications</h1>
+            <p>View all submitted applications</p>
+        </div>
+        
+        <div class="content">
+            <div class="controls">
+                <button class="btn btn-primary" onclick="refreshData()">Refresh Data</button>
+                <button class="btn btn-danger" onclick="clearAllData()">Clear All Data</button>
+                <a href="job_application_form.html" class="btn btn-primary">Add New Application</a>
+                <a href="candidate_resumes.html" class="btn btn-primary">View Candidate Resumes</a>
+            </div>
+            
+            <div id="applicationsContainer">
+                <!-- Applications will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function loadApplications() {
+            const applications = JSON.parse(localStorage.getItem('jobApplications') || '[]');
+            const container = document.getElementById('applicationsContainer');
+            
+            if (applications.length === 0) {
+                container.innerHTML = `
+                    <div class="no-applications">
+                        <h3>No Applications Found</h3>
+                        <p>No job applications have been submitted yet.</p>
+                        <a href="job_application_form.html" class="back-link">Submit Your First Application</a>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = applications.map((app, index) => `
+                <div class="application-card">
+                    <div class="card-header">
+                        <div class="position-title">${app.position}</div>
+                        <div class="timestamp">Submitted: ${new Date(app.submittedAt).toLocaleString()}</div>
+                    </div>
+                    <div class="card-content">
+                        <div class="field">
+                            <div class="field-label">Timeline:</div>
+                            <div class="field-value">${app.timeline}</div>
+                        </div>
+                        <div class="field">
+                            <div class="field-label">Budget:</div>
+                            <div class="field-value">${app.budget}</div>
+                        </div>
+                        <div class="field">
+                            <div class="field-label">Experience:</div>
+                            <div class="field-value">${app.experience} years</div>
+                        </div>
+                        <div class="field">
+                            <div class="field-label">Location:</div>
+                            <div class="field-value">${app.location}</div>
+                        </div>
+                        <div class="field">
+                            <div class="field-label">Skills:</div>
+                            <div class="field-value">${app.skills}</div>
+                        </div>
+                        <div class="field">
+                            <div class="field-label">Qualification:</div>
+                            <div class="field-value">${app.qualification}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function refreshData() {
+            loadApplications();
+        }
+        
+        function clearAllData() {
+            if (confirm('Are you sure you want to delete all applications? This action cannot be undone.')) {
+                localStorage.removeItem('jobApplications');
+                loadApplications();
+            }
+        }
+        
+        // Load applications when page loads
+        document.addEventListener('DOMContentLoaded', loadApplications);
+    </script>
+</body>
+</html>
