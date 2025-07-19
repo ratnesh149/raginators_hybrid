@@ -1,0 +1,26 @@
+Sarah Wilson - UI/UX Designer & Frontend Developer
+Email: sarah.wilson@email.com
+Phone: (555) 321-0987
+
+EXPERIENCE: 3 years
+
+SKILLS:
+- UI/UX Design, Figma, Adobe Creative Suite
+- HTML5, CSS3, JavaScript
+- React basics, Vue.js
+- Responsive Design, Accessibility
+- User Research, Prototyping
+
+EXPERIENCE:
+UI/UX Designer at DesignStudio (2022-2024)
+- Created user interfaces for web and mobile applications
+- Conducted user research and usability testing
+- Collaborated with developers on implementation
+
+Frontend Designer at Creative Agency (2021-2022)
+- Designed and coded responsive websites
+- Worked with clients on brand identity
+- Basic React component development
+
+EDUCATION:
+Bachelor of Graphic Design, Art Institute (2021)

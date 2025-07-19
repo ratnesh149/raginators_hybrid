@@ -1,0 +1,26 @@
+John Doe - Frontend Developer
+Email: john.doe@email.com
+Phone: (555) 123-4567
+
+EXPERIENCE: 5 years
+
+SKILLS:
+- React.js, Vue.js, Angular
+- JavaScript, TypeScript, HTML5, CSS3
+- Node.js, Express.js
+- Git, Webpack, Docker
+- Responsive Design, UI/UX
+
+EXPERIENCE:
+Senior Frontend Developer at TechCorp (2021-2024)
+- Built responsive web applications using React and TypeScript
+- Collaborated with design team on UI/UX improvements
+- Optimized application performance and accessibility
+
+Frontend Developer at StartupXYZ (2019-2021)
+- Developed single-page applications with Vue.js
+- Implemented RESTful API integrations
+- Mentored junior developers
+
+EDUCATION:
+Bachelor of Computer Science, State University (2019)

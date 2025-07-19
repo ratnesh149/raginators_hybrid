@@ -1,0 +1,26 @@
+Alex Johnson - Backend Developer
+Email: alex.johnson@email.com
+Phone: (555) 456-7890
+
+EXPERIENCE: 4 years
+
+SKILLS:
+- Python, Java, Go
+- Django, Spring Boot, FastAPI
+- PostgreSQL, Redis, Elasticsearch
+- Docker, Kubernetes, AWS
+- Microservices, API Design
+
+EXPERIENCE:
+Backend Developer at CloudCorp (2022-2024)
+- Built scalable APIs serving 1M+ requests/day
+- Implemented caching strategies with Redis
+- Designed microservices architecture
+
+Junior Backend Developer at DataFlow (2020-2022)
+- Developed REST APIs using Django
+- Optimized database performance
+- Implemented automated testing
+
+EDUCATION:
+Bachelor of Software Engineering, Code University (2020)

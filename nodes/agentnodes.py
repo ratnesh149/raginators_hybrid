@@ -2,10 +2,12 @@ from langchain_core.messages import HumanMessage, AIMessage
 from llm_init import llm
 from agents.jd_agent import jd_prompt
 from agents.checklist_agent import checklist_prompt
+from agents.candidate_agent import candidate_prompt
 from stateclass import State
 from langgraph.types import Command
 from typing_extensions import Literal
 from tools.vector_tools import vector_tools
+from tools.candidate_shortlist import candidate_shortlist_tool
 
 def jd_node(state: State) -> Command[Literal['chatbot']]:
     # Extract user messages
@@ -106,3 +108,35 @@ def checklist_node(state: State) -> Command[Literal['chatbot']]:
         goto="chatbot",
         update={"messages": [ai_message]}
     )
+
+
+def candidate_node(state: State) -> Command[Literal['chatbot']]:
+    # Extract user messages to understand job requirements
+    human_messages = [msg.content for msg in state['messages'] if isinstance(msg, HumanMessage)]
+    job_requirements = " ".join(human_messages)
+    
+    try:
+        # Directly call the candidate shortlisting tool
+        result = candidate_shortlist_tool._run(
+            job_requirements=job_requirements,
+            min_experience=4,  # Default minimum experience
+            n_candidates=5
+        )
+        
+        # Create response message
+        ai_message = AIMessage(content=result)
+        
+        return Command(
+            goto="chatbot",
+            update={"messages": [ai_message]}
+        )
+        
+    except Exception as e:
+        # Fallback response
+        error_message = f"I encountered an issue while searching for candidates: {str(e)}. Please try again with more specific requirements."
+        ai_message = AIMessage(content=error_message)
+        
+        return Command(
+            goto="chatbot",
+            update={"messages": [ai_message]}
+        )

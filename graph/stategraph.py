@@ -1,7 +1,7 @@
 from langgraph.graph import StateGraph, START, END
 from stateclass import State
 from nodes.chatbot import chatbot_node
-from nodes.agentnodes import jd_node, checklist_node
+from nodes.agentnodes import jd_node, checklist_node, candidate_node
 from nodes.human import human_interrupt
 from langgraph.checkpoint.memory import MemorySaver
 
@@ -21,6 +21,7 @@ builder = StateGraph(State)
 builder.add_node("chatbot", chatbot_node)
 builder.add_node("jd_agent", jd_node)
 builder.add_node("checklist_agent", checklist_node)
+builder.add_node("candidate_agent", candidate_node)
 builder.add_node("human_interrupt", human_interrupt)
 
 # Add edges
@@ -32,7 +33,8 @@ builder.add_conditional_edges(
     route_chatbot,
     {
         "jd_agent": "jd_agent",
-        "checklist_agent": "checklist_agent", 
+        "checklist_agent": "checklist_agent",
+        "candidate_agent": "candidate_agent",
         "human_interrupt": "human_interrupt",
         END: END
     }
@@ -41,6 +43,7 @@ builder.add_conditional_edges(
 # All other nodes route back to chatbot
 builder.add_edge("jd_agent", "chatbot")
 builder.add_edge("checklist_agent", "chatbot")
+builder.add_edge("candidate_agent", "chatbot")
 builder.add_edge("human_interrupt", "chatbot")
 
 graph = builder.compile(checkpointer=memory)

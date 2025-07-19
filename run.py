@@ -1,97 +1,95 @@
-# HR Assistant Application Entry Point
-# Author: Custom Implementation
-# Version: 1.0
+#!/usr/bin/env python3
+"""
+Simple HR Assistant Runner
+Works with the current graph structure
+"""
 
 from graph.stategraph import graph
-from stateclass import State
-from config import HRAssistantConfig
-from utils import MessageFormatter, SessionManager, ValidationHelper
+from langchain_core.messages import HumanMessage, AIMessage
 import sys
-import os
 
-# HR Assistant Application Entry Point
-# Author: Custom Implementation
-# Version: 1.0
-
-from graph.stategraph import graph
-from stateclass import State
-from config import HRAssistantConfig
-from utils import MessageFormatter, SessionManager, ValidationHelper
-from tools.document_processor import initialize_sample_data
-import sys
-import os
-
-def initialize_hr_system():
-    """Initialize the HR assistant system with custom configuration"""
-    print("🚀 Advanced HR Management System Starting...")
+def main():
+    """Main conversation loop"""
+    print("🚀 HR Assistant Starting...")
     print("📊 Initializing Vector Database...")
     
-    # Initialize vector database with sample data
+    # Initialize vector database
     try:
+        from tools.document_processor import initialize_sample_data
         initialize_sample_data()
         print("✅ Vector Database Ready")
     except Exception as e:
         print(f"⚠️  Vector Database Warning: {e}")
     
-    print(HRAssistantConfig.RESPONSE_SEPARATOR)
+    print("=" * 50)
+    print("💬 Chat with your HR Assistant!")
+    print("Type 'quit' to exit")
+    print("=" * 50)
     
-    # Generate unique session
-    session_id = SessionManager.generate_session_id()
-    system_config = HRAssistantConfig.get_session_config(session_id)
+    # Configuration
+    config = {
+        "configurable": {"thread_id": "hr_session"},
+        "recursion_limit": 10
+    }
     
-    SessionManager.log_session_event("system_start", {"session_id": session_id})
-    return system_config
-
-def process_agent_responses(step_data):
-    """Process and display agent responses with enhanced formatting"""
-    state_information = step_data[1]
+    # Initialize conversation state
+    state = {"messages": []}
     
-    # Define agent types for processing
-    active_agents = ["chatbot", "jd_agent", "checklist_agent"]
-    
-    for agent_name, agent_output in state_information.items():
-        if ValidationHelper.validate_agent_name(agent_name):
-            display_name = HRAssistantConfig.get_agent_display_name(agent_name)
-            print(f"\n🤖 [{display_name}] Response:")
-            print(HRAssistantConfig.AGENT_SEPARATOR)
+    while True:
+        try:
+            # Get user input
+            user_input = input("\n👤 You: ").strip()
             
-            response_messages = agent_output["messages"]
+            if user_input.lower() in ['quit', 'exit', 'bye']:
+                print("👋 Goodbye! Thanks for using HR Assistant!")
+                break
             
-            # Handle different message formats
-            if isinstance(response_messages, list):
-                for individual_msg in response_messages:
-                    content = individual_msg if isinstance(individual_msg, str) else individual_msg.content
-                    formatted_msg = MessageFormatter.format_agent_response(agent_name, content)
-                    print(f"  {formatted_msg}")
-            else:
-                content = response_messages if isinstance(response_messages, str) else response_messages.content
-                formatted_msg = MessageFormatter.format_agent_response(agent_name, content)
-                print(f"  {formatted_msg}")
-    
-    print(HRAssistantConfig.RESPONSE_SEPARATOR)
-
-def main():
-    """Main application execution function"""
-    try:
-        # Initialize system
-        config = initialize_hr_system()
-        
-        # Start conversation flow with sanitized input
-        initial_input = ValidationHelper.sanitize_input("Hello, I need assistance with hiring.")
-        initial_message = {"messages": [("user", initial_input)]}
-        
-        # Log user interaction
-        SessionManager.log_session_event("user_interaction", {"message": initial_input})
-        
-        # Process conversation stream
-        for conversation_step in graph.stream(initial_message, subgraphs=True, config=config):
-            process_agent_responses(conversation_step)
+            if not user_input:
+                continue
             
-    except Exception as e:
-        print(f"❌ System Error: {e}")
-        SessionManager.log_session_event("system_error", {"error": str(e)})
-        sys.exit(1)
+            # Add user message to state
+            state["messages"].append(HumanMessage(content=user_input))
+            
+            print("\n🤖 Assistant:")
+            print("-" * 40)
+            
+            # Process through the graph
+            response_received = False
+            
+            try:
+                for step in graph.stream(state, config=config):
+                    for node_name, node_output in step.items():
+                        if "messages" in node_output and node_output["messages"]:
+                            latest_message = node_output["messages"][-1]
+                            
+                            if hasattr(latest_message, 'content'):
+                                content = latest_message.content
+                                print(content)
+                                
+                                # Update state with the response
+                                state["messages"].extend(node_output["messages"])
+                                response_received = True
+                                
+                                # If we got a candidate shortlist, we're done with this request
+                                if "CANDIDATE SHORTLIST" in content:
+                                    break
+                    
+                    if response_received:
+                        break
+                        
+            except Exception as e:
+                print(f"❌ Error processing request: {e}")
+                print("Please try again with a different request.")
+            
+            if not response_received:
+                print("⚠️  No response received. Please try rephrasing your request.")
+                
+        except KeyboardInterrupt:
+            print("\n👋 Goodbye!")
+            break
+        except Exception as e:
+            print(f"❌ Error: {e}")
+            print("Please try again.")
 
 if __name__ == "__main__":
     main()
-

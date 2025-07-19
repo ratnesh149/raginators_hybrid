@@ -1,0 +1,26 @@
+Jane Smith - Full Stack Developer
+Email: jane.smith@email.com
+Phone: (555) 987-6543
+
+EXPERIENCE: 7 years
+
+SKILLS:
+- React, Angular, JavaScript, TypeScript
+- Python, Django, Flask
+- PostgreSQL, MongoDB
+- AWS, Docker, Kubernetes
+- GraphQL, REST APIs
+
+EXPERIENCE:
+Lead Full Stack Developer at BigTech Inc (2020-2024)
+- Led team of 6 developers on enterprise applications
+- Architected microservices using Python and React
+- Implemented CI/CD pipelines and cloud infrastructure
+
+Full Stack Developer at MidSize Corp (2017-2020)
+- Developed web applications using Django and React
+- Designed database schemas and optimized queries
+- Integrated third-party APIs and payment systems
+
+EDUCATION:
+Master of Computer Science, Tech University (2017)
