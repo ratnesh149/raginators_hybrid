@@ -38,18 +38,26 @@ def chat():
     try:
         data = request.get_json()
         user_message = data.get('message', '')
+        thread_id = data.get('thread_id', 'default-thread')
         
         if not user_message:
             return jsonify({'error': 'No message provided'}), 400
         
         logger.info(f"Processing chat message: {user_message}")
         
+        # Configuration for the graph with thread_id
+        config = {
+            "configurable": {
+                "thread_id": thread_id
+            }
+        }
+        
         # Process through the graph
         responses = []
-        for step in graph.stream({"messages": [("user", user_message)]}, subgraphs=True):
-            state_data = step[1]
-            
-            for node_name, node_response in state_data.items():
+        graph_input = {"messages": [("user", user_message)]}
+        
+        for step in graph.stream(graph_input, config=config):
+            for node_name, node_response in step.items():
                 if node_name in ["chatbot", "jd_agent", "checklist_agent", "candidate_agent"]:
                     messages = node_response.get("messages", "")
                     
@@ -57,7 +65,7 @@ def chat():
                     if isinstance(messages, str):
                         content = messages
                     elif isinstance(messages, list):
-                        content = " ".join([msg if isinstance(msg, str) else msg.content for msg in messages])
+                        content = " ".join([msg if isinstance(msg, str) else str(msg) for msg in messages])
                     else:
                         content = str(messages)
                     
@@ -76,7 +84,8 @@ def chat():
             return jsonify({
                 'success': True,
                 'response': responses[-1]['content'],
-                'agent': responses[-1]['agent']
+                'agent': responses[-1]['agent'],
+                'thread_id': thread_id
             })
         else:
             return jsonify({
@@ -330,11 +339,17 @@ def api_download_resume():
         
         # Get PDF file path from metadata
         metadata = best_match.get('metadata', {})
-        pdf_path = metadata.get('pdf_file_path')
-        pdf_filename = metadata.get('pdf_filename', f"{candidate_name.replace(' ', '_')}_Resume.pdf")
+        stored_pdf_path = metadata.get('pdf_file_path')
+        stored_pdf_filename = metadata.get('pdf_filename')
         
-        if not pdf_path or not os.path.exists(pdf_path):
-            return jsonify({'error': 'PDF file not found on disk'}), 404
+        # Use improved PDF path resolution
+        from pdf_utils import resolve_pdf_path
+        pdf_result = resolve_pdf_path(candidate_name, stored_pdf_path, stored_pdf_filename)
+        
+        if not pdf_result:
+            return jsonify({'error': f'PDF file not found for {candidate_name}'}), 404
+        
+        pdf_path, pdf_filename = pdf_result
         
         # Serve the actual PDF file
         return send_file(
@@ -381,10 +396,15 @@ def api_download_all_resumes():
                         
                         if best_match:
                             metadata = best_match.get('metadata', {})
-                            pdf_path = metadata.get('pdf_file_path')
-                            pdf_filename = metadata.get('pdf_filename', f"{candidate_name.replace(' ', '_')}_Resume.pdf")
+                            stored_pdf_path = metadata.get('pdf_file_path')
+                            stored_pdf_filename = metadata.get('pdf_filename')
                             
-                            if pdf_path and os.path.exists(pdf_path):
+                            # Use improved PDF path resolution
+                            from pdf_utils import resolve_pdf_path
+                            pdf_result = resolve_pdf_path(candidate_name, stored_pdf_path, stored_pdf_filename)
+                            
+                            if pdf_result:
+                                pdf_path, pdf_filename = pdf_result
                                 # Add PDF to ZIP
                                 zip_file.write(pdf_path, pdf_filename)
                             else:

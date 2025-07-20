@@ -1,0 +1,127 @@
+Step 1: Eliminate Resume Chunking
+Why: Current chunking creates duplicate entries
+
+Solution: Process whole resumes instead of chunks
+
+Tools:
+
+unstructured.io (replaces PyPDF2) for better PDF text extraction
+
+resumeparse library for structured data extraction
+
+Benefit: 100% elimination of duplicate candidates
+
+Step 2: Implement Unique Candidate Identification
+Why: Multiple candidates with same name cause file conflicts
+
+Solution: Generate unique IDs based on file content
+
+Tools:
+
+hashlib.md5 for content-based hashing
+
+Example ID: candidate_7d3f8a1b instead of Li_Wei
+
+Benefit: Resolves PDF download errors
+
+Step 3: Upgrade Vector Database
+Why: ChromaDB lacks advanced deduplication features
+
+Solution: Migrate to Weaviate or Qdrant
+
+Key Features Needed:
+
+Native grouping/deduplication
+
+Numeric range filtering (experience years)
+
+Array filtering (skills/domains)
+
+Recommendation: Weaviate for its superior grouping capabilities
+
+Benefit: Returns 5 unique candidates guaranteed
+
+Step 4: Enhance Metadata Extraction
+Why: Manual parsing fails with resume variations
+
+Solution: Use AI for structured data extraction
+
+Tools:
+
+GPT-4 Turbo (or Llama 3) with function calling
+
+Pydantic models for validation
+
+Extract Fields:
+
+python
+name: str
+experience: float  # in years
+skills: list[str]
+domains: list[str]
+unique_id: str
+Benefit: Accurate experience/skill filtering
+
+Step 5: Implement Hybrid Search
+Why: Pure vector search causes low diversity
+
+Solution: Combine vector + keyword search
+
+Implementation:
+
+Vector: Semantic understanding of experience descriptions
+
+Keyword: Precise skill/domain matching
+
+Query Example:
+"React experts (vector) + Python AND AWS (keyword) + experience ≥5 years (filter)"
+
+Benefit: Higher quality candidate matches
+
+⏱️ Implementation Roadmap
+Phase	Timeline	Key Deliverables
+1. MVP Setup	Week 1	• Whole-resume processing pipeline
+• Unique ID system
+• Weaviate test instance
+2. Data Migration	Week 2	• Resume reprocessing
+• Metadata extraction
+• DB migration from ChromaDB
+3. Search Upgrade	Week 3	• Hybrid search implementation
+• Deduplication queries
+• PDF download fix
+4. Validation	Week 4	• Quality testing (100 resumes)
+• Performance metrics
+• User acceptance testing
+📊 Expected Outcomes
+Metric	Current	Target	Improvement
+Unique candidates/query	2-3	5	100%+
+Duplicate results	40%	0%	Complete fix
+PDF download success	80%	100%	Critical fix
+Storage usage	High	Reduced 70%	Efficiency
+Filter precision	Low	High	Accurate screening
+💰 Resource Requirements
+New Tools:
+
+Weaviate (open-source)
+
+unstructured.io (Apache 2.0 license)
+
+GPT-4 API credits ($0.01/resume)
+
+Effort:
+
+3 developer-weeks
+
+1 QA week
+
+Manager oversight: 2hrs/week
+
+Risks:
+
+Learning curve for Weaviate
+
+LLM extraction costs
+
+Mitigation: Start with small batch testing
+
+

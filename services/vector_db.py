@@ -1,316 +1,264 @@
-"""
-Vector Database Service for HR Assistant
-Handles document storage, retrieval, and similarity search
-"""
-
-import os
 import chromadb
 from chromadb.config import Settings
-from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_core.documents import Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from typing import List, Dict, Any, Optional
-from datetime import datetime
 import logging
+from typing import List, Dict, Any, Optional
+import os
+from pathlib import Path
 
+# Import hybrid components
+from .enhanced_pdf_processor import enhanced_pdf_processor
+from .local_metadata_extractor import local_metadata_extractor
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class HRVectorDB:
-    """Vector database service for HR-related document storage and retrieval"""
+class HybridVectorDB:
+    """
+    Hybrid Vector Database with No-Chunking Strategy
+    Uses unique candidate IDs to eliminate duplicates
+    """
     
-    def __init__(self, persist_directory: str = "./chroma_db"):
-        """Initialize the vector database"""
+    def __init__(self, persist_directory: str = "./hybrid_chroma_db"):
+        """Initialize hybrid vector database"""
         self.persist_directory = persist_directory
-        self.embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
-            model_kwargs={'device': 'cpu'}
+        
+        # Initialize ChromaDB with persistence
+        self.client = chromadb.PersistentClient(
+            path=persist_directory,
+            settings=Settings(
+                anonymized_telemetry=False,
+                allow_reset=True
+            )
         )
         
-        # Initialize Chroma client
-        self.client = chromadb.PersistentClient(path=persist_directory)
+        # Create collections
+        self.collections = {}
+        self._initialize_collections()
         
-        # Initialize collections for different HR document types
-        self.collections = {
-            "job_descriptions": self._get_or_create_collection("job_descriptions"),
-            "resumes": self._get_or_create_collection("resumes"),
-            "hr_policies": self._get_or_create_collection("hr_policies"),
-            "interview_questions": self._get_or_create_collection("interview_questions"),
-            "company_info": self._get_or_create_collection("company_info")
+        logger.info(f"✅ Hybrid Vector Database initialized at {persist_directory}")
+    
+    def _initialize_collections(self):
+        """Initialize ChromaDB collections"""
+        
+        # Candidates collection (no chunking - whole resumes)
+        self.collections["candidates"] = self.client.get_or_create_collection(
+            name="candidates_hybrid",
+            metadata={"description": "Candidate resumes - no chunking, unique IDs"}
+        )
+        
+        # Job descriptions collection
+        self.collections["job_descriptions"] = self.client.get_or_create_collection(
+            name="job_descriptions_hybrid",
+            metadata={"description": "Job descriptions"}
+        )
+        
+        # Interview questions collection
+        self.collections["interview_questions"] = self.client.get_or_create_collection(
+            name="interview_questions_hybrid",
+            metadata={"description": "Interview questions"}
+        )
+        
+        logger.info("✅ Collections initialized")
+    
+    def generate_unique_id(self, pdf_content: str, metadata: Dict[str, Any], pdf_filename: str) -> str:
+        """Generate unique candidate ID"""
+        import hashlib
+        
+        # Create unique ID from content + metadata
+        content_hash = hashlib.md5(pdf_content.encode()).hexdigest()[:8]
+        email = metadata.get('email', '')
+        phone = metadata.get('phone', '')
+        meta_hash = hashlib.md5(f"{email}{phone}".encode()).hexdigest()[:4]
+        file_hash = hashlib.md5(pdf_filename.encode()).hexdigest()[:4]
+        
+        return f"candidate_{content_hash}_{meta_hash}_{file_hash}"
+    
+    def add_resume(self, candidate_name: str, resume_text: str, metadata: Dict[str, Any]):
+        """
+        Add resume to vector database (NO CHUNKING)
+        Each resume is stored as a single entry with unique ID
+        """
+        
+        # Generate unique candidate ID
+        pdf_filename = metadata.get('pdf_filename', 'unknown.pdf')
+        unique_id = self.generate_unique_id(resume_text, metadata, pdf_filename)
+        
+        # Enhanced metadata with unique ID
+        enhanced_metadata = {
+            **metadata,
+            'unique_id': unique_id,
+            'candidate_name': candidate_name,
+            'processing_method': 'hybrid_no_chunking'
         }
         
-        # Text splitter for document chunking
-        self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200,
-            length_function=len,
-        )
-    
-    def _get_or_create_collection(self, name: str):
-        """Get or create a collection"""
         try:
-            return self.client.get_collection(name)
-        except:
-            return self.client.create_collection(name)
+            # Check if candidate already exists
+            existing = self._get_candidate_by_id(unique_id)
+            if existing:
+                logger.info(f"🔄 Updating existing candidate: {candidate_name} ({unique_id})")
+                self._update_candidate(unique_id, resume_text, enhanced_metadata)
+            else:
+                logger.info(f"➕ Adding new candidate: {candidate_name} ({unique_id})")
+                self._add_new_candidate(unique_id, resume_text, enhanced_metadata)
+                
+        except Exception as e:
+            logger.error(f"❌ Error adding resume for {candidate_name}: {e}")
+            raise
     
-    def add_job_description(self, job_title: str, description: str, metadata: Dict[str, Any] = None):
-        """Add a job description to the vector database"""
-        if metadata is None:
-            metadata = {}
-        
-        metadata.update({
-            "type": "job_description",
-            "job_title": job_title,
-            "timestamp": datetime.now().isoformat()
-        })
-        
-        # Split text into chunks
-        chunks = self.text_splitter.split_text(description)
-        
-        # Add to collection
-        for i, chunk in enumerate(chunks):
-            doc_id = f"{job_title.lower().replace(' ', '_')}_{i}"
-            self.collections["job_descriptions"].add(
-                documents=[chunk],
-                metadatas=[metadata],
-                ids=[doc_id]
+    def _get_candidate_by_id(self, unique_id: str) -> Optional[Dict]:
+        """Check if candidate already exists by unique ID"""
+        try:
+            results = self.collections["candidates"].get(
+                ids=[unique_id],
+                include=['metadatas', 'documents']
             )
-        
-        logger.info(f"Added job description for {job_title} with {len(chunks)} chunks")
+            return results if results['ids'] else None
+        except Exception:
+            return None
     
-    def add_resume(self, candidate_name: str, resume_text: str, metadata: Dict[str, Any] = None):
-        """Add a resume to the vector database"""
-        if metadata is None:
-            metadata = {}
+    def _add_new_candidate(self, unique_id: str, resume_text: str, metadata: Dict[str, Any]):
+        """Add new candidate to database"""
+        self.collections["candidates"].add(
+            documents=[resume_text],  # Whole resume, no chunking
+            metadatas=[metadata],
+            ids=[unique_id]
+        )
+    
+    def _update_candidate(self, unique_id: str, resume_text: str, metadata: Dict[str, Any]):
+        """Update existing candidate"""
+        self.collections["candidates"].update(
+            documents=[resume_text],
+            metadatas=[metadata],
+            ids=[unique_id]
+        )
+    
+    def search_candidates(self, query: str, n_results: int = 10, 
+                         filters: Optional[Dict] = None) -> List[Dict]:
+        """
+        Search candidates with automatic deduplication
+        Returns unique candidates only (no duplicates possible with unique IDs)
+        """
         
-        metadata.update({
-            "type": "resume",
-            "candidate_name": candidate_name,
-            "timestamp": datetime.now().isoformat()
-        })
-        
-        chunks = self.text_splitter.split_text(resume_text)
-        
-        for i, chunk in enumerate(chunks):
-            doc_id = f"{candidate_name.lower().replace(' ', '_')}_{i}"
-            self.collections["resumes"].add(
-                documents=[chunk],
-                metadatas=[metadata],
-                ids=[doc_id]
+        try:
+            # Build where clause for filtering
+            where_clause = {}
+            if filters:
+                for key, value in filters.items():
+                    if isinstance(value, dict) and '>=' in value:
+                        # Handle numeric filters like experience_years >= 4
+                        where_clause[key] = {"$gte": value['>=']}
+                    else:
+                        where_clause[key] = value
+            
+            # Search in candidates collection
+            results = self.collections["candidates"].query(
+                query_texts=[query],
+                n_results=n_results,
+                where=where_clause if where_clause else None,
+                include=['documents', 'metadatas', 'distances']
             )
-        
-        logger.info(f"Added resume for {candidate_name} with {len(chunks)} chunks")
-    
-    def add_hr_policy(self, policy_name: str, policy_text: str, metadata: Dict[str, Any] = None):
-        """Add HR policy document to the vector database"""
-        if metadata is None:
-            metadata = {}
-        
-        metadata.update({
-            "type": "hr_policy",
-            "policy_name": policy_name,
-            "timestamp": datetime.now().isoformat()
-        })
-        
-        chunks = self.text_splitter.split_text(policy_text)
-        
-        for i, chunk in enumerate(chunks):
-            doc_id = f"{policy_name.lower().replace(' ', '_')}_{i}"
-            self.collections["hr_policies"].add(
-                documents=[chunk],
-                metadatas=[metadata],
-                ids=[doc_id]
-            )
-        
-        logger.info(f"Added HR policy {policy_name} with {len(chunks)} chunks")
-    
-    def search_similar_jobs(self, query: str, n_results: int = 5) -> List[Dict]:
-        """Search for similar job descriptions"""
-        results = self.collections["job_descriptions"].query(
-            query_texts=[query],
-            n_results=n_results
-        )
-        
-        return self._format_search_results(results)
-    
-    def search_candidates(self, job_requirements: str, n_results: int = 10) -> List[Dict]:
-        """Search for candidates matching job requirements"""
-        results = self.collections["resumes"].query(
-            query_texts=[job_requirements],
-            n_results=n_results
-        )
-        
-        return self._format_search_results(results)
-    
-    def search_hr_policies(self, query: str, n_results: int = 5) -> List[Dict]:
-        """Search HR policies for relevant information"""
-        results = self.collections["hr_policies"].query(
-            query_texts=[query],
-            n_results=n_results
-        )
-        
-        return self._format_search_results(results)
-    
-    def get_interview_questions(self, job_role: str, n_results: int = 10) -> List[Dict]:
-        """Get relevant interview questions for a job role"""
-        results = self.collections["interview_questions"].query(
-            query_texts=[f"interview questions for {job_role}"],
-            n_results=n_results
-        )
-        
-        return self._format_search_results(results)
-    
-    def _format_search_results(self, results: Dict) -> List[Dict]:
-        """Format search results into a consistent structure"""
-        formatted_results = []
-        
-        if results['documents'] and results['documents'][0]:
-            for i, doc in enumerate(results['documents'][0]):
-                result = {
-                    "content": doc,
-                    "metadata": results['metadatas'][0][i] if results['metadatas'] else {},
-                    "distance": results['distances'][0][i] if results['distances'] else None,
-                    "id": results['ids'][0][i] if results['ids'] else None
-                }
-                formatted_results.append(result)
-        
-        return formatted_results
+            
+            # Format results
+            formatted_results = []
+            if results['ids'] and results['ids'][0]:
+                for i in range(len(results['ids'][0])):
+                    result = {
+                        'id': results['ids'][0][i],
+                        'content': results['documents'][0][i],
+                        'metadata': results['metadatas'][0][i],
+                        'distance': results['distances'][0][i] if results['distances'] else None
+                    }
+                    formatted_results.append(result)
+            
+            logger.info(f"🔍 Search for '{query}' returned {len(formatted_results)} unique candidates")
+            return formatted_results
+            
+        except Exception as e:
+            logger.error(f"❌ Search error: {e}")
+            return []
     
     def add_sample_data(self):
-        """Add sample HR data for testing"""
-        # First, scan for PDF files in sample_resumes folder
-        import os
-        from pathlib import Path
+        """Add actual PDF resume data to the vector database (NO CHUNKING)"""
         
         pdf_files = []
         sample_resumes_path = Path("sample_resumes")
         
-        if sample_resumes_path.exists():
-            for pdf_file in sample_resumes_path.glob("*.pdf"):
-                pdf_files.append(pdf_file)
+        if not sample_resumes_path.exists():
+            logger.warning("sample_resumes folder not found")
+            return
         
-        logger.info(f"Found {len(pdf_files)} PDF files in sample_resumes folder")
+        # Get all PDF files
+        for pdf_file in sample_resumes_path.glob("*.pdf"):
+            pdf_files.append(pdf_file)
         
-        # Process PDF files and create candidate data
+        logger.info(f"📄 Found {len(pdf_files)} PDF files in sample_resumes folder")
+        
+        # Process actual PDF files with NO CHUNKING
         processed_candidates = []
         
-        for pdf_file in pdf_files[:10]:  # Process first 10 PDFs for now
+        for pdf_file in pdf_files:
             try:
+                logger.info(f"🔄 Processing {pdf_file.name}...")
+                
                 # Extract candidate name from filename
                 filename = pdf_file.stem
-                # Extract name from pattern like "resume_001_John_Smith_Role"
                 parts = filename.split('_')
                 if len(parts) >= 4:
                     candidate_name = f"{parts[2]} {parts[3]}"
                 else:
                     candidate_name = filename.replace('_', ' ').title()
                 
-                # Create sample resume text (in real implementation, extract from PDF)
-                resume_text = f"""{candidate_name} - Professional Resume
+                # Extract FULL content from PDF (no chunking)
+                try:
+                    resume_text = enhanced_pdf_processor.extract_resume_content(str(pdf_file))
+                    
+                    if not resume_text.strip():
+                        logger.warning(f"⚠️  No text extracted from {pdf_file.name}")
+                        continue
+                        
+                except Exception as pdf_error:
+                    logger.warning(f"❌ Error reading PDF {pdf_file.name}: {pdf_error}")
+                    continue
                 
-Email: {candidate_name.lower().replace(' ', '.')}@email.com
-Phone: (555) 123-4567
-
-EXPERIENCE: 5 years
-
-SKILLS:
-- Software Engineering, Data Science, Product Management
-- Python, JavaScript, React, SQL
-- Project Management, Team Leadership
-- Cloud Technologies, Machine Learning
-
-EXPERIENCE:
-Senior Professional at TechCorp (2020-2024)
-- Led development of innovative solutions
-- Managed cross-functional teams
-- Delivered high-impact projects
-- Mentored junior team members
-
-Professional at StartupXYZ (2018-2020)
-- Developed scalable applications
-- Collaborated with stakeholders
-- Implemented best practices
-                """
+                # Extract metadata using local extractor
+                metadata_obj = local_metadata_extractor.extract_metadata(resume_text)
                 
-                # Add resume with PDF file reference
-                self.add_resume(candidate_name, resume_text, {
-                    "experience_years": 5,
-                    "skills": "Python, JavaScript, React, SQL, Machine Learning",
-                    "email": f"{candidate_name.lower().replace(' ', '.')}@email.com",
-                    "phone": "(555) 123-4567",
-                    "pdf_file_path": str(pdf_file),
-                    "pdf_filename": pdf_file.name,
-                    "file_size": pdf_file.stat().st_size
-                })
+                # Convert to dict with ChromaDB-compatible types (no lists)
+                metadata_dict = {
+                    'candidate_name': candidate_name,
+                    'experience_years': float(metadata_obj.experience_years),
+                    'skills': ', '.join(metadata_obj.skills) if metadata_obj.skills else '',
+                    'domains': ', '.join(metadata_obj.domains) if metadata_obj.domains else '',
+                    'email': metadata_obj.email or '',
+                    'phone': metadata_obj.phone or '',
+                    'education_level': metadata_obj.education_level or '',
+                    'certifications': ', '.join(metadata_obj.certifications) if metadata_obj.certifications else '',
+                    'languages': ', '.join(metadata_obj.languages) if metadata_obj.languages else '',
+                    'location': metadata_obj.location or '',
+                    'confidence_score': float(metadata_obj.confidence_score),
+                    'extraction_method': metadata_obj.extraction_method,
+                    'pdf_file_path': str(pdf_file),
+                    'pdf_filename': pdf_file.name,
+                    'file_size': int(pdf_file.stat().st_size)
+                }
                 
+                # Add resume with NO CHUNKING (whole resume as single entry)
+                self.add_resume(candidate_name, resume_text, metadata_dict)
                 processed_candidates.append(candidate_name)
                 
             except Exception as e:
-                logger.warning(f"Error processing {pdf_file.name}: {e}")
+                logger.warning(f"❌ Error processing {pdf_file.name}: {e}")
         
-        logger.info(f"Processed {len(processed_candidates)} PDF resumes")
-        
-        # Add some sample job descriptions
-        sample_jobs = [
-            {
-                "title": "Frontend Developer",
-                "description": """We are looking for a skilled Frontend Developer to join our team. 
-                Requirements: React, JavaScript, HTML, CSS, TypeScript. 
-                Experience with modern frameworks and responsive design. 
-                3+ years experience required.""",
-                "metadata": {"department": "Engineering", "level": "Mid", "remote": True}
-            },
-            {
-                "title": "Data Scientist",
-                "description": """Seeking a Data Scientist with expertise in machine learning and analytics. 
-                Requirements: Python, SQL, TensorFlow, scikit-learn, statistics. 
-                Experience with big data and cloud platforms. 
-                5+ years experience required.""",
-                "metadata": {"department": "Data", "level": "Senior", "remote": False}
-            },
-            {
-                "title": "Backend Developer",
-                "description": """Looking for a Backend Developer with strong API development skills.
-                Requirements: Python, Django, PostgreSQL, REST APIs, Docker.
-                Experience with cloud platforms and microservices.
-                4+ years experience required.""",
-                "metadata": {"department": "Engineering", "level": "Senior", "remote": True}
-            }
-        ]
-        
-        for job in sample_jobs:
-            self.add_job_description(job["title"], job["description"], job["metadata"])
-        
-        # Sample interview questions
-        interview_questions = [
-            "Tell me about your experience with React and modern JavaScript frameworks",
-            "How do you approach responsive web design?",
-            "Describe your experience with version control systems like Git",
-            "What's your process for debugging frontend issues?",
-            "How do you ensure cross-browser compatibility?",
-            "Explain your experience with machine learning algorithms",
-            "How do you handle missing data in your datasets?",
-            "Describe your approach to A/B testing and experimental design",
-            "What's your experience with cloud platforms like AWS or GCP?",
-            "How do you optimize database queries for performance?"
-        ]
-        
-        for i, question in enumerate(interview_questions):
-            category = "frontend" if i < 5 else "data_science" if i < 8 else "backend"
-            self.collections["interview_questions"].add(
-                documents=[question],
-                metadatas=[{"type": "interview_question", "category": category}],
-                ids=[f"{category}_q_{i}"]
-            )
-        
-        logger.info("Added sample data to vector database")
+        logger.info(f"✅ Processed {len(processed_candidates)} actual PDF resumes with NO CHUNKING")
+        logger.info("✅ Added actual PDF data to hybrid vector database")
 
 # Global instance
-vector_db = None
+hybrid_vector_db = None
 
-def get_vector_db() -> HRVectorDB:
-    """Get or create the global vector database instance"""
-    global vector_db
-    if vector_db is None:
-        vector_db = HRVectorDB()
-    return vector_db
+def get_vector_db() -> HybridVectorDB:
+    """Get or create the global hybrid vector database instance"""
+    global hybrid_vector_db
+    if hybrid_vector_db is None:
+        hybrid_vector_db = HybridVectorDB()
+    return hybrid_vector_db
