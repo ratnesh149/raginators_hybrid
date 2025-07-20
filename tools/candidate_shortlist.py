@@ -133,7 +133,7 @@ class CandidateShortlistTool(BaseTool):
             else:
                 experience_score = 1.0  # Single year range
         
-        # Boost score for candidates with relevant skills
+        # Basic tech boost for backward compatibility (will be enhanced with skills analysis)
         content = candidate.get('content', '').lower()
         skills_text = metadata.get('skills', '').lower()
         
@@ -150,8 +150,9 @@ class CandidateShortlistTool(BaseTool):
         if 'java' in content or 'java' in skills_text:
             tech_boost += 0.1
         
-        # Combined score: 60% match score + 30% experience score + 10% tech boost
-        combined_score = (0.6 * match_score) + (0.3 * experience_score) + min(0.1, tech_boost)
+        # Updated scoring: 30% match score + 20% experience score + basic tech boost
+        # (Tech skills will get full 50% weight in final_combined_score calculation)
+        combined_score = (0.3 * match_score) + (0.2 * experience_score) + min(0.1, tech_boost)
         return min(1.0, combined_score)
 
     def _run(self, job_requirements: str, min_experience: int = 0, max_experience: int = 999, n_candidates: int = 10) -> str:
@@ -162,9 +163,11 @@ class CandidateShortlistTool(BaseTool):
             # Parse required skills from job requirements
             required_skills = []
             if "Required Skills:" in job_requirements:
-                skills_line = [line for line in job_requirements.split('\n') if line.startswith("Required Skills:")][0]
-                skills_text = skills_line.replace("Required Skills:", "").strip()
-                required_skills = [skill.strip() for skill in skills_text.split(',') if skill.strip()]
+                skills_lines = [line for line in job_requirements.split('\n') if line.strip().startswith("Required Skills:")]
+                if skills_lines:  # Check if we found any lines
+                    skills_line = skills_lines[0]
+                    skills_text = skills_line.replace("Required Skills:", "").strip()
+                    required_skills = [skill.strip() for skill in skills_text.split(',') if skill.strip()]
             
             # Search for matching candidates (get more to account for filtering)
             search_multiplier = max(4, n_candidates)  # Get 4x candidates for better filtering
@@ -195,6 +198,8 @@ class CandidateShortlistTool(BaseTool):
             
             # Step 3: Enhanced skills filtering
             skills_filtered = experience_filtered
+            skills_filter_applied = False
+            
             if required_skills:
                 from services.skills_matcher import skills_matcher
                 
@@ -202,26 +207,49 @@ class CandidateShortlistTool(BaseTool):
                 skills_filtered = skills_matcher.filter_candidates_by_skills(
                     experience_filtered, 
                     required_skills, 
-                    min_match_threshold=0.2  # 20% minimum skills match
+                    min_match_threshold=0.3  # 30% minimum skills match (more strict)
                 )
+                skills_filter_applied = True
                 
-                if not skills_filtered:
-                    # If no candidates meet skills threshold, show best experience matches with skills analysis
-                    skills_filtered = skills_matcher.filter_candidates_by_skills(
+                # If very few results, try with lower threshold but still meaningful
+                if len(skills_filtered) < max(2, n_candidates // 2):
+                    relaxed_filtered = skills_matcher.filter_candidates_by_skills(
                         experience_filtered, 
                         required_skills, 
-                        min_match_threshold=0.0  # Show all with skills analysis
-                    )[:n_candidates]
+                        min_match_threshold=0.1  # 10% minimum (still requires some skill match)
+                    )
+                    
+                    if len(relaxed_filtered) > len(skills_filtered):
+                        skills_filtered = relaxed_filtered
+                
+                # Only if absolutely no skills matches found, show a clear message
+                if not skills_filtered:
+                    return f"""No candidates found with the required skills: {', '.join(required_skills)}
+
+🔍 **SKILLS ANALYSIS SUMMARY:**
+   • Total candidates after experience filtering: {len(experience_filtered)}
+   • Candidates with required skills: 0
+   • Required skills: {', '.join(required_skills)}
+
+💡 **SUGGESTIONS:**
+   • Try broader skill terms (e.g., 'JavaScript' instead of 'React')
+   • Reduce the number of required skills
+   • Consider adding more candidates with these skills to your database
+   • Check if the skills are spelled correctly
+
+📊 **AVAILABLE SKILLS IN DATABASE:**
+   Run the debug tool to see what skills are actually available in your candidate pool."""
             
             # Step 4: Sort candidates by combined score (match score + experience preference + skills match)
             for candidate in skills_filtered:
                 base_score = self._calculate_combined_score(candidate, min_experience, max_experience)
                 
-                # Add skills matching bonus
+                # Add skills matching bonus - NOW 50% weight for tech skills!
                 skills_analysis = candidate.get('skills_analysis', {})
-                skills_bonus = skills_analysis.get('match_score', 0) * 0.3  # 30% weight for skills
+                skills_score = skills_analysis.get('match_score', 0) * 0.5  # 50% weight for skills
                 
-                candidate['final_combined_score'] = min(1.0, base_score + skills_bonus)
+                # Final scoring: 30% match + 20% experience + 50% tech skills
+                candidate['final_combined_score'] = min(1.0, base_score + skills_score)
             
             # Sort by final combined score (highest first)
             skills_filtered.sort(key=lambda x: x.get('final_combined_score', 0), reverse=True)
@@ -301,28 +329,48 @@ class CandidateShortlistTool(BaseTool):
             good_match_count = sum(1 for c in final_candidates if 0.6 <= c.get('final_combined_score', 0) <= 0.8)
             
             # Calculate skills statistics
-            if required_skills:
+            skills_stats_msg = ""
+            if required_skills and skills_filter_applied:
                 avg_skills_match = sum(c.get('skills_analysis', {}).get('match_score', 0) for c in final_candidates) / max(len(final_candidates), 1)
                 perfect_skills_matches = sum(1 for c in final_candidates if c.get('skills_analysis', {}).get('match_score', 0) >= 0.9)
+                candidates_with_all_skills = sum(1 for c in final_candidates if c.get('skills_analysis', {}).get('match_score', 0) >= 1.0)
+                
+                skills_stats_msg = f"""   • After skills filtering: {len(skills_filtered)} (from {len(experience_filtered)})
+   • Average skills match: {avg_skills_match:.1%}
+   • Candidates with all required skills: {candidates_with_all_skills}
+   • Candidates with 90%+ skills match: {perfect_skills_matches}"""
             
             shortlist.append("📈 **ENHANCED FILTERING SUMMARY:**")
             shortlist.append(f"   • Initial search results: {len(initial_results)}")
             shortlist.append(f"   • After deduplication: {len(unique_results)} unique candidates")
             shortlist.append(f"   • After experience filtering: {len(experience_filtered)}")
             
-            if required_skills:
-                shortlist.append(f"   • After skills filtering: {len(skills_filtered)}")
-                shortlist.append(f"   • Average skills match: {avg_skills_match:.1%}")
-                shortlist.append(f"   • Perfect skills matches: {perfect_skills_matches}")
+            if skills_stats_msg:
+                shortlist.append(skills_stats_msg)
             
             shortlist.append(f"   • Final shortlist: {len(final_candidates)} candidates")
             shortlist.append(f"   • Highly recommended (>80% score): {high_match_count}")
             shortlist.append(f"   • Good matches (60-80% score): {good_match_count}")
             shortlist.append(f"   • Duplicates eliminated: {len(initial_results) - len(unique_results)}")
             
+            # Add skills filtering effectiveness message
+            if required_skills and skills_filter_applied:
+                skills_effectiveness = len(skills_filtered) / max(len(experience_filtered), 1)
+                if skills_effectiveness < 0.1:
+                    shortlist.append(f"   ⚠️  **SKILLS FILTER IMPACT**: Very strict filtering - only {skills_effectiveness:.1%} of candidates have required skills")
+                elif skills_effectiveness < 0.3:
+                    shortlist.append(f"   🎯 **SKILLS FILTER IMPACT**: Moderate filtering - {skills_effectiveness:.1%} of candidates have required skills")
+                else:
+                    shortlist.append(f"   ✅ **SKILLS FILTER IMPACT**: Good availability - {skills_effectiveness:.1%} of candidates have required skills")
+            
             shortlist.append("")
             shortlist.append("🔒 **GUARANTEE**: No duplicate candidates + Multi-criteria optimization!")
-            shortlist.append("🎯 **RANKING**: Candidates sorted by combined score (40% match + 30% experience + 30% skills)")
+            
+            if required_skills:
+                shortlist.append("🎯 **RANKING**: Candidates sorted by combined score (30% match + 20% experience + 50% tech skills)")
+                shortlist.append("🛠️ **SKILLS FILTERING**: Only shows candidates who actually have the required skills")
+            else:
+                shortlist.append("🎯 **RANKING**: Candidates sorted by combined score (50% match + 50% experience)")
             
             if required_skills:
                 shortlist.append("🛠️ **SKILLS ANALYSIS**: Detailed skills matching with exact/partial/bonus skill identification")

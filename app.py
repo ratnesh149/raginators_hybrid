@@ -116,6 +116,12 @@ if "candidates" not in st.session_state:
 if "search_performed" not in st.session_state:
     st.session_state.search_performed = False
 
+if "evaluation_performed" not in st.session_state:
+    st.session_state.evaluation_performed = False
+
+if "evaluation_results" not in st.session_state:
+    st.session_state.evaluation_results = {}
+
 if "search_timestamp" not in st.session_state:
     st.session_state.search_timestamp = None
 
@@ -408,6 +414,143 @@ with col2:
                             st.session_state.candidates = candidates_list
                             st.session_state.search_performed = True
                         
+                        # NEW: Advanced Candidate Evaluation with 60% Accuracy Threshold
+                        if st.session_state.candidates and filtered_results:
+                            with st.spinner("🔍 Performing advanced candidate evaluation with 60% accuracy threshold..."):
+                                try:
+                                    from tools.candidate_evaluation import candidate_evaluation_tool
+                                    
+                                    # Create comprehensive job description for evaluation
+                                    comprehensive_job_desc = f"""
+Job Title: {job_title}
+
+Required Skills: {', '.join(required_skills) if required_skills else 'Not specified'}
+
+Experience Level: {experience_level}
+Minimum Experience: {min_exp} years
+Maximum Experience: {max_exp} years
+
+Location: {location if location else 'Not specified'}
+Education: {education if education else 'Not specified'}
+
+Job Requirements:
+{generated_query}
+                                    """.strip()
+                                    
+                                    # Get evaluation results using the new evaluation tool
+                                    evaluation_summary = candidate_evaluation_tool.get_evaluation_summary(
+                                        candidates=filtered_results,  # Use original candidate objects
+                                        job_description=comprehensive_job_desc
+                                    )
+                                    
+                                    if 'error' not in evaluation_summary:
+                                        # Store evaluation results in session state
+                                        st.session_state.evaluation_results = evaluation_summary
+                                        st.session_state.evaluation_performed = True
+                                        
+                                        # Update candidates list with evaluation scores and status
+                                        selected_candidates = evaluation_summary.get('selected_candidates', [])
+                                        rejected_candidates = evaluation_summary.get('rejected_candidates', [])
+                                        
+                                        # Re-create candidates list with evaluation data
+                                        evaluated_candidates_list = []
+                                        
+                                        # Add selected candidates first (60%+ accuracy)
+                                        for eval_result in selected_candidates:
+                                            candidate = eval_result['candidate']
+                                            score = eval_result['score']
+                                            justification = eval_result['justification']
+                                            metadata = candidate.get('metadata', {})
+                                            
+                                            candidate_info = {
+                                                "name": metadata.get('candidate_name', 'Unknown'),
+                                                "experience": f"{metadata.get('experience_years', 'Unknown')} years",
+                                                "skills": metadata.get('skills', 'Not specified'),
+                                                "email": metadata.get('email', 'Not available'),
+                                                "phone": metadata.get('phone', 'Not available'),
+                                                "education": metadata.get('education', 'Not specified'),
+                                                "location": metadata.get('location', 'Not specified'),
+                                                "match_score": f"{score.overall_score:.1%}",
+                                                "evaluation_status": "SELECTED ⭐",
+                                                "evaluation_score": score.overall_score,
+                                                "selection_reasons": justification.get('selection_reasons', []),
+                                                "unique_id": metadata.get('unique_id', f'selected_{len(evaluated_candidates_list)}'),
+                                                "pdf_file_path": metadata.get('pdf_file_path', ''),
+                                                "pdf_filename": metadata.get('pdf_filename', ''),
+                                                "skills_score": f"{score.skills_alignment:.1%}",
+                                                "experience_score": f"{score.experience_mapping:.1%}",
+                                                "semantic_score": f"{score.semantic_similarity:.1%}",
+                                                "cert_score": f"{score.certification_score:.1%}",
+                                                "role_fit_score": f"{score.role_fit_score:.1%}",
+                                                "recommendation": justification.get('recommendation', '')
+                                            }
+                                            evaluated_candidates_list.append(candidate_info)
+                                        
+                                        # Add rejected candidates (below 60% accuracy)
+                                        for eval_result in rejected_candidates:
+                                            candidate = eval_result['candidate']
+                                            score = eval_result['score']
+                                            justification = eval_result['justification']
+                                            metadata = candidate.get('metadata', {})
+                                            
+                                            candidate_info = {
+                                                "name": metadata.get('candidate_name', 'Unknown'),
+                                                "experience": f"{metadata.get('experience_years', 'Unknown')} years",
+                                                "skills": metadata.get('skills', 'Not specified'),
+                                                "email": metadata.get('email', 'Not available'),
+                                                "phone": metadata.get('phone', 'Not available'),
+                                                "education": metadata.get('education', 'Not specified'),
+                                                "location": metadata.get('location', 'Not specified'),
+                                                "match_score": f"{score.overall_score:.1%}",
+                                                "evaluation_status": "REJECTED",
+                                                "evaluation_score": score.overall_score,
+                                                "rejection_reasons": justification.get('rejection_reasons', []),
+                                                "unique_id": metadata.get('unique_id', f'rejected_{len(evaluated_candidates_list)}'),
+                                                "pdf_file_path": metadata.get('pdf_file_path', ''),
+                                                "pdf_filename": metadata.get('pdf_filename', ''),
+                                                "skills_score": f"{score.skills_alignment:.1%}",
+                                                "experience_score": f"{score.experience_mapping:.1%}",
+                                                "semantic_score": f"{score.semantic_similarity:.1%}",
+                                                "cert_score": f"{score.certification_score:.1%}",
+                                                "role_fit_score": f"{score.role_fit_score:.1%}",
+                                                "recommendation": justification.get('recommendation', '')
+                                            }
+                                            evaluated_candidates_list.append(candidate_info)
+                                        
+                                        # Update session state with evaluated candidates
+                                        st.session_state.candidates = evaluated_candidates_list
+                                        
+                                        # Show evaluation summary
+                                        summary = evaluation_summary.get('summary', {})
+                                        selected_count = summary.get('selected_count', 0)
+                                        rejected_count = summary.get('rejected_count', 0)
+                                        avg_score = summary.get('average_score', '0%')
+                                        selection_rate = summary.get('selection_rate', '0%')
+                                        
+                                        st.success(f"🎯 **Advanced Evaluation Complete!**\n\n"
+                                                 f"✅ **Selected**: {selected_count} candidates (≥60% accuracy)\n"
+                                                 f"❌ **Rejected**: {rejected_count} candidates (<60% threshold)\n"
+                                                 f"📊 **Average Score**: {avg_score}\n"
+                                                 f"📈 **Selection Rate**: {selection_rate}")
+                                        
+                                        # Show detailed evaluation criteria used
+                                        criteria = summary.get('evaluation_criteria', {})
+                                        st.info(f"🔍 **Evaluation Criteria Applied:**\n"
+                                               f"• Required Skills: {criteria.get('required_skills_count', 0)} skills\n"
+                                               f"• Experience Range: {criteria.get('experience_range', 'Any')}\n"
+                                               f"• Role Level: {criteria.get('role_level', 'Any').title()}\n"
+                                               f"• Certifications: {'Required' if criteria.get('certifications_required') else 'Optional'}")
+                                    
+                                    else:
+                                        st.error(f"Evaluation failed: {evaluation_summary['error']}")
+                                        logger.error(f"Evaluation error: {evaluation_summary['error']}")
+                                    
+                                except Exception as e:
+                                    st.error(f"Error during advanced evaluation: {str(e)}")
+                                    logger.error(f"Evaluation error: {e}")
+                                    # Continue with original candidates if evaluation fails
+                                    pass
+                        
                         # Add experience filter info to the success message
                         exp_filter_msg = ""
                         if experience_level != "Any":
@@ -532,73 +675,451 @@ if st.session_state.search_performed and st.session_state.candidates:
     
     st.markdown("---")
     
-    # Display individual candidates with download buttons
-    for i, candidate in enumerate(st.session_state.candidates):
-        col1, col2 = st.columns([4, 1])
+    # Add view options
+    st.markdown("### 👀 View Options")
+    view_mode = st.radio(
+        "Choose how to display candidates:",
+        ["📋 Detailed Cards View", "📊 Table Summary View"],
+        horizontal=True
+    )
+    
+    if view_mode == "📊 Table Summary View":
+        # Create a comprehensive table view
+        st.markdown("### 📊 All Candidates Summary Table")
+        
+        # Prepare data for table
+        table_data = []
+        for candidate in st.session_state.candidates:
+            evaluation_status = candidate.get('evaluation_status', 'NOT_EVALUATED')
+            
+            # Determine status emoji and text
+            if evaluation_status.startswith('SELECTED'):
+                status_display = "✅ SELECTED"
+                priority = 1
+            elif evaluation_status == 'REJECTED':
+                status_display = "❌ REJECTED"
+                priority = 2
+            else:
+                status_display = "📋 NOT EVALUATED"
+                priority = 3
+            
+            # Get evaluation score or match score
+            try:
+                if candidate.get('evaluation_score'):
+                    eval_score = candidate['evaluation_score']
+                    if isinstance(eval_score, (int, float)):
+                        score_display = f"{eval_score:.1%}"
+                    else:
+                        score_display = str(eval_score)
+                else:
+                    score_display = candidate.get('match_score', 'N/A')
+            except:
+                score_display = candidate.get('match_score', 'N/A')
+            
+            # Get primary reason
+            primary_reason = "N/A"
+            if candidate.get('selection_reasons'):
+                primary_reason = candidate['selection_reasons'][0][:100] + "..." if len(candidate['selection_reasons'][0]) > 100 else candidate['selection_reasons'][0]
+            elif candidate.get('rejection_reasons'):
+                primary_reason = candidate['rejection_reasons'][0][:100] + "..." if len(candidate['rejection_reasons'][0]) > 100 else candidate['rejection_reasons'][0]
+            
+            # Check if resume is available
+            file_path = resume_downloader.get_resume_file_path(candidate)
+            resume_available = "✅ Available" if file_path and os.path.exists(file_path) else "❌ Not Found"
+            
+            table_data.append({
+                'Priority': priority,
+                'Name': candidate['name'],
+                'Status': status_display,
+                'Score': score_display,
+                'Experience': candidate['experience'],
+                'Email': candidate['email'],
+                'Phone': candidate['phone'],
+                'Key Skills': candidate['skills'][:50] + "..." if len(candidate['skills']) > 50 else candidate['skills'],
+                'Primary Reason': primary_reason,
+                'Resume': resume_available,
+                'Unique ID': candidate.get('unique_id', 'N/A')[:15] + "..."
+            })
+        
+        # Sort by priority (selected first, then rejected, then not evaluated)
+        table_data.sort(key=lambda x: x['Priority'])
+        
+        # Remove priority column for display
+        display_data = [{k: v for k, v in row.items() if k != 'Priority'} for row in table_data]
+        
+        # Display the table
+        if display_data:
+            # Use simple dataframe display for better compatibility
+            st.dataframe(
+                display_data,
+                use_container_width=True,
+                hide_index=True
+            )
+            
+            # Add bulk download options below table
+            st.markdown("### 📦 Bulk Actions")
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                # Download all resumes
+                if st.button("📦 Download All Resumes (ZIP)", type="primary"):
+                    with st.spinner("Creating ZIP file with all resumes..."):
+                        zip_path = resume_downloader.create_bulk_download_zip(st.session_state.candidates)
+                        if zip_path:
+                            with open(zip_path, "rb") as f:
+                                st.download_button(
+                                    label="⬇️ Download ZIP File",
+                                    data=f.read(),
+                                    file_name=f"all_candidates_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
+                                    mime="application/zip",
+                                    key="bulk_download_all"
+                                )
+            
+            with col2:
+                # Download selected candidates only
+                selected_only = [c for c in st.session_state.candidates if c.get('evaluation_status', '').startswith('SELECTED')]
+                if selected_only:
+                    if st.button("✅ Download Selected Only (ZIP)", type="secondary"):
+                        with st.spinner("Creating ZIP file with selected candidates..."):
+                            zip_path = resume_downloader.create_bulk_download_zip(selected_only)
+                            if zip_path:
+                                with open(zip_path, "rb") as f:
+                                    st.download_button(
+                                        label="⬇️ Download Selected ZIP",
+                                        data=f.read(),
+                                        file_name=f"selected_candidates_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
+                                        mime="application/zip",
+                                        key="bulk_download_selected"
+                                    )
+            
+            with col3:
+                # Export candidate data as CSV
+                csv_content = resume_downloader.create_candidates_csv(st.session_state.candidates)
+                if csv_content:
+                    st.download_button(
+                        label="📊 Export as CSV",
+                        data=csv_content,
+                        file_name=f"candidates_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv",
+                        key="export_csv"
+                    )
+        else:
+            st.info("No candidate data available for table view.")
+    
+    else:
+        # Detailed Cards View
+        
+        # First, separate candidates by evaluation status
+        selected_candidates = [c for c in st.session_state.candidates if c.get('evaluation_status', '').startswith('SELECTED')]
+        rejected_candidates = [c for c in st.session_state.candidates if c.get('evaluation_status') == 'REJECTED']
+        not_evaluated_candidates = [c for c in st.session_state.candidates if c.get('evaluation_status', 'NOT_EVALUATED') == 'NOT_EVALUATED']
+        
+        # Display Selected Candidates First (if any)
+        if selected_candidates:
+            st.subheader("✅ Selected Candidates (60%+ Match)")
+            st.success(f"Found {len(selected_candidates)} candidates that meet the 60% accuracy threshold")
+            
+            for i, candidate in enumerate(selected_candidates):
+                with st.container():
+                    col1, col2, col3 = st.columns([3, 2, 1])
+                    
+                    with col1:
+                        # Candidate basic info
+                        st.markdown(f"""
+                        **🌟 {candidate['name']}**  
+                        📧 **Email:** {candidate['email']}  
+                        📞 **Phone:** {candidate['phone']}  
+                        💼 **Experience:** {candidate['experience']}  
+                        🎓 **Education:** {candidate['education']}  
+                        🛠️ **Skills:** {candidate['skills'][:150]}{'...' if len(candidate['skills']) > 150 else ''}
+                        """)
+                    
+                    with col2:
+                        # Evaluation scores and reasons
+                        st.markdown("**📊 Evaluation Results:**")
+                        try:
+                            eval_score = candidate.get('evaluation_score', 0)
+                            if isinstance(eval_score, (int, float)):
+                                st.markdown(f"**Overall Score:** {eval_score:.1%}")
+                            else:
+                                st.markdown(f"**Overall Score:** {eval_score}")
+                        except:
+                            st.markdown(f"**Overall Score:** {candidate.get('evaluation_score', 'N/A')}")
+                        
+                        # Display detailed scores
+                        if candidate.get('skills_score'):
+                            try:
+                                st.markdown(f"• Skills Match: {candidate['skills_score']}")
+                                st.markdown(f"• Experience Fit: {candidate['experience_score']}")
+                                st.markdown(f"• Semantic Match: {candidate['semantic_score']}")
+                                st.markdown(f"• Role Fit: {candidate.get('role_fit_score', 'N/A')}")
+                            except Exception as e:
+                                st.markdown("• Detailed scores: Available in evaluation data")
+                        
+                        # Selection reasons
+                        if candidate.get('selection_reasons'):
+                            st.markdown("**🎯 Selection Reasons:**")
+                            for reason in candidate['selection_reasons'][:3]:  # Show top 3 reasons
+                                st.markdown(f"• {reason}")
+                            
+                            if len(candidate['selection_reasons']) > 3:
+                                with st.expander("View All Reasons"):
+                                    for reason in candidate['selection_reasons'][3:]:
+                                        st.markdown(f"• {reason}")
+                    
+                    with col3:
+                        # Download button
+                        file_path = resume_downloader.get_resume_file_path(candidate)
+                        if file_path and os.path.exists(file_path):
+                            with open(file_path, "rb") as f:
+                                st.download_button(
+                                    label="📄 Download Resume",
+                                    data=f.read(),
+                                    file_name=f"{candidate['name'].replace(' ', '_')}_resume.pdf",
+                                    mime="application/pdf",
+                                    key=f"download_selected_{i}",
+                                    help=f"Download resume for {candidate['name']}",
+                                    type="primary"
+                                )
+                        else:
+                            st.button(
+                                "❌ Resume Not Found",
+                                disabled=True,
+                                key=f"missing_selected_{i}",
+                                help="Resume file not available"
+                            )
+                    
+                    st.markdown("---")
+        
+        # Display Rejected Candidates
+        if rejected_candidates:
+            st.subheader("❌ Rejected Candidates (Below 60% Threshold)")
+            st.info(f"Found {len(rejected_candidates)} candidates that didn't meet the 60% threshold but may still be worth reviewing")
+            
+            # Option to show/hide rejected candidates
+            show_rejected = st.checkbox("Show Rejected Candidates Details", value=True)
+            
+            if show_rejected:
+                for i, candidate in enumerate(rejected_candidates):
+                    with st.container():
+                        col1, col2, col3 = st.columns([3, 2, 1])
+                        
+                        with col1:
+                            # Candidate basic info
+                            st.markdown(f"""
+                            **{candidate['name']}**  
+                            📧 **Email:** {candidate['email']}  
+                            📞 **Phone:** {candidate['phone']}  
+                            💼 **Experience:** {candidate['experience']}  
+                            🎓 **Education:** {candidate['education']}  
+                            🛠️ **Skills:** {candidate['skills'][:150]}{'...' if len(candidate['skills']) > 150 else ''}
+                            """)
+                        
+                        with col2:
+                            # Evaluation scores and rejection reasons
+                            st.markdown("**📊 Evaluation Results:**")
+                            try:
+                                eval_score = candidate.get('evaluation_score', 0)
+                                if isinstance(eval_score, (int, float)):
+                                    st.markdown(f"**Overall Score:** {eval_score:.1%}")
+                                else:
+                                    st.markdown(f"**Overall Score:** {eval_score}")
+                            except:
+                                st.markdown(f"**Overall Score:** {candidate.get('evaluation_score', 'N/A')}")
+                            
+                            # Display detailed scores
+                            if candidate.get('skills_score'):
+                                try:
+                                    st.markdown(f"• Skills Match: {candidate['skills_score']}")
+                                    st.markdown(f"• Experience Fit: {candidate['experience_score']}")
+                                    st.markdown(f"• Semantic Match: {candidate['semantic_score']}")
+                                    st.markdown(f"• Role Fit: {candidate.get('role_fit_score', 'N/A')}")
+                                except Exception as e:
+                                    st.markdown("• Detailed scores: Available in evaluation data")
+                            
+                            # Rejection reasons
+                            if candidate.get('rejection_reasons'):
+                                st.markdown("**❌ Rejection Reasons:**")
+                                for reason in candidate['rejection_reasons'][:3]:  # Show top 3 reasons
+                                    st.markdown(f"• {reason}")
+                                
+                                if len(candidate['rejection_reasons']) > 3:
+                                    with st.expander("View All Reasons"):
+                                        for reason in candidate['rejection_reasons'][3:]:
+                                            st.markdown(f"• {reason}")
+                            
+                            # Show recommendation
+                            if candidate.get('recommendation'):
+                                st.markdown(f"**💡 Assessment:** {candidate['recommendation']}")
+                        
+                        with col3:
+                            # Download button
+                            file_path = resume_downloader.get_resume_file_path(candidate)
+                            if file_path and os.path.exists(file_path):
+                                with open(file_path, "rb") as f:
+                                    st.download_button(
+                                        label="📄 Download Resume",
+                                        data=f.read(),
+                                        file_name=f"{candidate['name'].replace(' ', '_')}_resume.pdf",
+                                        mime="application/pdf",
+                                        key=f"download_rejected_{i}",
+                                        help=f"Download resume for {candidate['name']}",
+                                        type="secondary"
+                                    )
+                            else:
+                                st.button(
+                                    "❌ Resume Not Found",
+                                    disabled=True,
+                                    key=f"missing_rejected_{i}",
+                                    help="Resume file not available"
+                                )
+                        
+                        st.markdown("---")
+        
+        # Display Not Evaluated Candidates (fallback for old data)
+        if not_evaluated_candidates:
+            st.subheader("📋 Additional Candidates (Not Evaluated)")
+            st.warning(f"Found {len(not_evaluated_candidates)} candidates from previous searches that haven't been evaluated yet")
+            
+            # Option to show/hide not evaluated candidates
+            show_not_evaluated = st.checkbox("Show Not Evaluated Candidates", value=False)
+            
+            if show_not_evaluated:
+                for i, candidate in enumerate(not_evaluated_candidates):
+                    with st.container():
+                        col1, col2, col3 = st.columns([3, 2, 1])
+                        
+                        with col1:
+                            # Candidate basic info
+                            st.markdown(f"""
+                            **{candidate['name']}**  
+                            📧 **Email:** {candidate['email']}  
+                            📞 **Phone:** {candidate['phone']}  
+                            💼 **Experience:** {candidate['experience']}  
+                            🎓 **Education:** {candidate['education']}  
+                            🛠️ **Skills:** {candidate['skills'][:150]}{'...' if len(candidate['skills']) > 150 else ''}
+                            """)
+                        
+                        with col2:
+                            # Basic match score (old system)
+                            st.markdown("**📊 Basic Match Score:**")
+                            st.markdown(f"**Match Score:** {candidate.get('match_score', 'N/A')}")
+                            st.markdown("*Advanced evaluation not performed*")
+                            
+                            # Show unique ID for reference
+                            st.markdown(f"**🆔 ID:** {candidate.get('unique_id', 'N/A')[:20]}...")
+                        
+                        with col3:
+                            # Download button
+                            file_path = resume_downloader.get_resume_file_path(candidate)
+                            if file_path and os.path.exists(file_path):
+                                with open(file_path, "rb") as f:
+                                    st.download_button(
+                                        label="📄 Download Resume",
+                                        data=f.read(),
+                                        file_name=f"{candidate['name'].replace(' ', '_')}_resume.pdf",
+                                        mime="application/pdf",
+                                        key=f"download_not_eval_{i}",
+                                        help=f"Download resume for {candidate['name']}"
+                                    )
+                            else:
+                                st.button(
+                                    "❌ Resume Not Found",
+                                    disabled=True,
+                                    key=f"missing_not_eval_{i}",
+                                    help="Resume file not available"
+                                )
+                        
+                        st.markdown("---")
+        
+        # Summary section at the bottom
+        st.markdown("### 📊 Summary")
+        col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            # Determine match quality for styling
-            match_score_num = int(candidate['match_score'].replace('%', ''))
-            if match_score_num >= 70:
-                match_color = "#2ecc71"  # Green
-                match_icon = "⭐"
-            elif match_score_num >= 50:
-                match_color = "#f39c12"  # Orange
-                match_icon = "✅"
-            else:
-                match_color = "#e74c3c"  # Red
-                match_icon = "⚠️"
-            
-            st.markdown(f"""
-            <div class="candidate-card" style="border-left-color: {match_color};">
-                <div class="candidate-name">{match_icon} {candidate['name']} - Match: {candidate['match_score']}</div>
-                <div class="candidate-info">📧 Email: {candidate['email']}</div>
-                <div class="candidate-info">📞 Phone: {candidate['phone']}</div>
-                <div class="candidate-info">💼 Experience: {candidate['experience']}</div>
-                <div class="candidate-info">🛠️ Skills: {candidate['skills'][:100]}{'...' if len(candidate['skills']) > 100 else ''}</div>
-                <div class="candidate-info">📍 Location: {candidate['location']}</div>
-                <div class="candidate-info">🎓 Education: {candidate['education']}</div>
-                <div class="candidate-info">🆔 Unique ID: {candidate['unique_id'][:20]}...</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
+            st.metric("Total Candidates", len(st.session_state.candidates))
         with col2:
-            # Individual download button
-            file_path = resume_downloader.get_resume_file_path(candidate)
-            if file_path and os.path.exists(file_path):
-                with open(file_path, "rb") as f:
-                    st.download_button(
-                        label="📄 Download Resume",
-                        data=f.read(),
-                        file_name=f"{candidate['name'].replace(' ', '_')}_resume.pdf",
-                        mime="application/pdf",
-                        key=f"download_{i}",
-                        help=f"Download resume for {candidate['name']}"
-                    )
-            else:
-                st.button(
-                    "❌ Not Found",
-                    disabled=True,
-                    key=f"missing_{i}",
-                    help="Resume file not found"
-                )
+            st.metric("✅ Selected", len(selected_candidates), delta=f"{len(selected_candidates)/len(st.session_state.candidates)*100:.1f}%" if st.session_state.candidates else "0%")
+        with col3:
+            st.metric("❌ Rejected", len(rejected_candidates), delta=f"{len(rejected_candidates)/len(st.session_state.candidates)*100:.1f}%" if st.session_state.candidates else "0%")
+        with col4:
+            st.metric("📋 Not Evaluated", len(not_evaluated_candidates))
         
         st.markdown("<br>", unsafe_allow_html=True)
     
-    # Add statistics
-    st.markdown("### 📊 Search Statistics")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Total Candidates", len(st.session_state.candidates))
-    with col2:
-        avg_match = sum([int(c['match_score'].replace('%', '')) for c in st.session_state.candidates]) / len(st.session_state.candidates)
-        st.metric("Average Match", f"{avg_match:.1f}%")
-    with col3:
-        unique_skills = set()
-        for c in st.session_state.candidates:
-            if c['skills'] != 'Not specified':
-                unique_skills.update([skill.strip() for skill in c['skills'].split(',')])
-        st.metric("Unique Skills Found", len(unique_skills))
+    # Add statistics with evaluation metrics
+    st.markdown("### 📊 Search & Evaluation Statistics")
+    
+    # Check if evaluation was performed
+    if st.session_state.get('evaluation_performed', False):
+        # Enhanced statistics with evaluation data
+        col1, col2, col3, col4 = st.columns(4)
+        
+        selected_count = len([c for c in st.session_state.candidates if c.get('evaluation_status', '').startswith('SELECTED')])
+        rejected_count = len([c for c in st.session_state.candidates if c.get('evaluation_status') == 'REJECTED'])
+        
+        with col1:
+            st.metric("Total Evaluated", len(st.session_state.candidates))
+        with col2:
+            st.metric("✅ Selected (60%+)", selected_count, delta=f"{selected_count/len(st.session_state.candidates)*100:.1f}%")
+        with col3:
+            st.metric("❌ Rejected (<60%)", rejected_count, delta=f"{rejected_count/len(st.session_state.candidates)*100:.1f}%")
+        with col4:
+            # Calculate average evaluation score
+            eval_scores = [c.get('evaluation_score', 0) for c in st.session_state.candidates if c.get('evaluation_score')]
+            avg_eval_score = sum(eval_scores) / len(eval_scores) if eval_scores else 0
+            st.metric("Average Score", f"{avg_eval_score:.1%}")
+        
+        # Additional evaluation insights
+        st.markdown("---")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            # Skills analysis
+            skills_scores = [c.get('skills_score', 0) for c in st.session_state.candidates if c.get('skills_score')]
+            avg_skills = sum(skills_scores) / len(skills_scores) if skills_scores else 0
+            st.metric("Avg Skills Match", f"{avg_skills:.1%}")
+        
+        with col2:
+            # Experience analysis
+            exp_scores = [c.get('experience_score', 0) for c in st.session_state.candidates if c.get('experience_score')]
+            avg_exp = sum(exp_scores) / len(exp_scores) if exp_scores else 0
+            st.metric("Avg Experience Fit", f"{avg_exp:.1%}")
+        
+        with col3:
+            # Semantic analysis
+            semantic_scores = [c.get('semantic_score', 0) for c in st.session_state.candidates if c.get('semantic_score')]
+            avg_semantic = sum(semantic_scores) / len(semantic_scores) if semantic_scores else 0
+            st.metric("Avg Semantic Match", f"{avg_semantic:.1%}")
+    
+    else:
+        # Original statistics if no evaluation performed
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Candidates", len(st.session_state.candidates))
+        with col2:
+            # Fix TypeError by safely handling match_score values
+            try:
+                match_scores = []
+                for c in st.session_state.candidates:
+                    match_score = c.get('match_score', '0%')
+                    if isinstance(match_score, str) and '%' in match_score:
+                        match_scores.append(int(match_score.replace('%', '')))
+                    elif isinstance(match_score, (int, float)):
+                        match_scores.append(int(match_score * 100) if match_score <= 1 else int(match_score))
+                    else:
+                        match_scores.append(0)
+                
+                avg_match = sum(match_scores) / len(match_scores) if match_scores else 0
+                st.metric("Average Match", f"{avg_match:.1f}%")
+            except Exception as e:
+                st.metric("Average Match", "N/A")
+        with col3:
+            unique_skills = set()
+            for c in st.session_state.candidates:
+                if c['skills'] != 'Not specified':
+                    unique_skills.update([skill.strip() for skill in c['skills'].split(',')])
+            st.metric("Unique Skills Found", len(unique_skills))
 
 # Training Insights Section
 if st.session_state.search_performed:
@@ -670,6 +1191,8 @@ if st.session_state.search_performed:
     if st.button("🗑️ Clear Results"):
         st.session_state.candidates = []
         st.session_state.search_performed = False
+        st.session_state.evaluation_performed = False
+        st.session_state.evaluation_results = {}
         st.session_state.messages = [{
             "role": "assistant",
             "content": "Hello! I'm here to help you find the right candidates. Use the selection panel to specify your requirements."
