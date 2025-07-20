@@ -225,6 +225,43 @@ with col2:
         
         st.markdown('</div>', unsafe_allow_html=True)
         
+        # Job Description Generator button
+        if st.button("📝 Generate Job Description", type="secondary"):
+            if job_title:
+                try:
+                    from tools.job_description_generator import job_description_generator
+                    
+                    with st.spinner("Generating job description..."):
+                        # Generate job description based on form inputs
+                        job_desc = job_description_generator._run(
+                            job_title=job_title,
+                            required_skills=required_skills,
+                            experience_level=experience_level,
+                            location=location,
+                            education=education,
+                            company_name="Your Company",
+                            department=""
+                        )
+                        
+                        # Add to chat
+                        st.session_state.messages.append({
+                            "role": "user",
+                            "content": f"Generate a job description for: {job_title}"
+                        })
+                        
+                        st.session_state.messages.append({
+                            "role": "assistant", 
+                            "content": f"Here's a professional job description based on your criteria:\n\n{job_desc}"
+                        })
+                        
+                        st.success("✅ Job description generated successfully!")
+                        st.rerun()
+                        
+                except Exception as e:
+                    st.error(f"Error generating job description: {str(e)}")
+            else:
+                st.warning("Please enter a job title first!")
+        
         # Search button
         if st.button("🔍 Find Candidates", type="primary"):
             if job_title:
