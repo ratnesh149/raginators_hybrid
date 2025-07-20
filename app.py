@@ -421,6 +421,27 @@ with col2:
                             "content": f"Found {len(st.session_state.candidates)} unique candidates from the vector database matching your criteria{exp_filter_msg}. All candidates are guaranteed to be unique through our hybrid deduplication system!"
                         })
                         
+                        # Record search interaction for training
+                        try:
+                            from services.training_system import training_system
+                            
+                            search_data = {
+                                "job_title": job_title,
+                                "required_skills": required_skills,
+                                "experience_level": experience_level,
+                                "location": location,
+                                "education": education,
+                                "num_candidates": num_candidates
+                            }
+                            
+                            training_system.record_search_interaction(
+                                search_data=search_data,
+                                results=st.session_state.candidates,
+                                user_feedback=None  # Could be enhanced with user feedback later
+                            )
+                        except Exception as training_error:
+                            logger.warning(f"Training system error: {training_error}")
+                        
                 except Exception as e:
                     st.error(f"Error during candidate search: {str(e)}")
                     logger.error(f"Candidate search error: {e}")
@@ -578,6 +599,71 @@ if st.session_state.search_performed and st.session_state.candidates:
             if c['skills'] != 'Not specified':
                 unique_skills.update([skill.strip() for skill in c['skills'].split(',')])
         st.metric("Unique Skills Found", len(unique_skills))
+
+# Training Insights Section
+if st.session_state.search_performed:
+    with st.expander("🧠 AI Learning Insights", expanded=False):
+        try:
+            from services.training_system import training_system
+            
+            # Get training summary
+            summary = training_system.get_training_summary()
+            
+            st.markdown("### 📈 System Learning Progress")
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total Searches", summary["total_searches"])
+            with col2:
+                st.metric("Success Rate", f"{summary['overall_success_rate']:.1f}%")
+            with col3:
+                st.metric("Training Data Points", summary["training_data_size"])
+            
+            # Field effectiveness
+            if summary["field_effectiveness"]:
+                st.markdown("### 🎯 Field Effectiveness")
+                for field, data in summary["field_effectiveness"].items():
+                    field_name = field.replace("_", " ").title()
+                    effectiveness = data["effectiveness_percentage"]
+                    
+                    # Color code based on effectiveness
+                    if effectiveness >= 70:
+                        color = "green"
+                        icon = "🟢"
+                    elif effectiveness >= 50:
+                        color = "orange"
+                        icon = "🟡"
+                    else:
+                        color = "red"
+                        icon = "🔴"
+                    
+                    st.markdown(f"{icon} **{field_name}**: {effectiveness:.1f}% effective ({data['successful_uses']}/{data['total_uses']} searches)")
+            
+            # Skill recommendations for current job title
+            if 'job_title' in locals() and job_title:
+                recommendations = training_system.get_skill_recommendations(job_title)
+                if recommendations:
+                    st.markdown("### 💡 Recommended Skills for This Role")
+                    st.info(f"Based on training data, these skills are commonly successful for **{job_title}**: {', '.join(recommendations[:5])}")
+            
+            # Experience level insights
+            if 'experience_level' in locals() and experience_level != "Any":
+                insights = training_system.get_experience_insights(experience_level)
+                if insights["total_searches"] > 0:
+                    st.markdown(f"### 📊 {experience_level} Insights")
+                    st.markdown(f"**Success Rate**: {insights['success_rate']:.1f}% | **Avg Results**: {insights['average_results']} | **Searches**: {insights['total_searches']}")
+                    st.markdown(f"**Recommendation**: {insights['recommendation']}")
+            
+            # Popular successful combinations
+            popular_combos = training_system.get_popular_combinations()
+            if popular_combos:
+                st.markdown("### 🏆 Most Successful Search Combinations")
+                for i, combo in enumerate(popular_combos[:3], 1):
+                    st.markdown(f"**{i}.** {combo['job_title']} | {combo['experience_level']} | Skills: {combo['key_skills'][:30]}...")
+                    st.markdown(f"   *Success: {combo['success_score']} good matches from {combo['results_count']} results*")
+            
+        except Exception as e:
+            st.warning("Training insights temporarily unavailable")
 
 # Clear results button
 if st.session_state.search_performed:
