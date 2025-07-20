@@ -105,8 +105,57 @@ class CandidateShortlistTool(BaseTool):
         logger.info(f"✅ Deduplication complete: {len(candidates)} → {len(unique_candidates)} unique candidates")
         return unique_candidates
     
+    def _calculate_combined_score(self, candidate: Dict, min_experience: int, max_experience: int) -> float:
+        """Calculate combined score based on match score and experience level"""
+        # Get base match score
+        distance = candidate.get('distance', 1.0)
+        if distance <= 1.0:
+            match_score = max(0, min(1, 1 - distance))
+        else:
+            # For distances > 1, use exponential decay
+            match_score = max(0, min(1, 2 - distance))
+        
+        # Get experience and calculate experience score
+        metadata = candidate.get('metadata', {})
+        candidate_experience = metadata.get('experience_years', 0)
+        
+        # Experience score: prefer higher experience within the range
+        if max_experience == 999:  # Open-ended range (e.g., 10+ years)
+            # For open-ended ranges, give higher scores to more experienced candidates
+            experience_score = min(1.0, candidate_experience / (min_experience + 10))
+        else:
+            # For closed ranges, prefer candidates closer to the maximum
+            range_size = max_experience - min_experience
+            if range_size > 0:
+                # Normalize experience within the range (0 to 1)
+                normalized_exp = (candidate_experience - min_experience) / range_size
+                experience_score = normalized_exp
+            else:
+                experience_score = 1.0  # Single year range
+        
+        # Boost score for candidates with relevant skills
+        content = candidate.get('content', '').lower()
+        skills_text = metadata.get('skills', '').lower()
+        
+        # Check for key technology matches
+        tech_boost = 0
+        if 'react' in content or 'react' in skills_text:
+            tech_boost += 0.1
+        if 'javascript' in content or 'javascript' in skills_text:
+            tech_boost += 0.1
+        if 'frontend' in content or 'frontend' in skills_text:
+            tech_boost += 0.05
+        if 'python' in content or 'python' in skills_text:
+            tech_boost += 0.1
+        if 'java' in content or 'java' in skills_text:
+            tech_boost += 0.1
+        
+        # Combined score: 60% match score + 30% experience score + 10% tech boost
+        combined_score = (0.6 * match_score) + (0.3 * experience_score) + min(0.1, tech_boost)
+        return min(1.0, combined_score)
+
     def _run(self, job_requirements: str, min_experience: int = 0, max_experience: int = 999, n_candidates: int = 10) -> str:
-        """Shortlist candidates with guaranteed deduplication"""
+        """Shortlist candidates with guaranteed deduplication and experience-based sorting"""
         try:
             vector_db = get_vector_db()
             
@@ -137,14 +186,24 @@ class CandidateShortlistTool(BaseTool):
             if not filtered_candidates:
                 return f"No unique candidates found with {min_experience}-{max_experience} years of experience."
             
-            # Step 3: Take top N candidates
+            # Step 3: Sort candidates by combined score (match score + experience preference)
+            for candidate in filtered_candidates:
+                candidate['combined_score'] = self._calculate_combined_score(candidate, min_experience, max_experience)
+            
+            # Sort by combined score (highest first)
+            filtered_candidates.sort(key=lambda x: x['combined_score'], reverse=True)
+            
+            # Step 4: Take top N candidates
             final_candidates = filtered_candidates[:n_candidates]
             
-            # Step 4: Format results with deduplication info
+            # Step 5: Format results with deduplication and experience-based ranking info
             shortlist = []
             shortlist.append(f"🎯 **HYBRID CANDIDATE SHORTLIST** (Top {len(final_candidates)} unique matches)")
             shortlist.append("=" * 70)
             shortlist.append(f"✅ **DEDUPLICATION GUARANTEE**: All candidates are 100% unique")
+            if min_experience > 0 or max_experience < 999:
+                exp_range = f"{min_experience}-{max_experience}" if max_experience < 999 else f"{min_experience}+"
+                shortlist.append(f"🎯 **EXPERIENCE FILTER**: {exp_range} years (sorted by experience + match score)")
             shortlist.append("")
             
             for i, candidate in enumerate(final_candidates, 1):
@@ -153,28 +212,15 @@ class CandidateShortlistTool(BaseTool):
                 experience = metadata.get('experience_years', 'Unknown')
                 unique_id = metadata.get('unique_id', 'N/A')
                 
-                # Improved match score calculation
+                # Use the pre-calculated combined score
+                combined_score = candidate.get('combined_score', 0)
+                
+                # Calculate individual components for display
                 distance = candidate.get('distance', 1.0)
                 if distance <= 1.0:
                     match_score = max(0, min(1, 1 - distance))
                 else:
-                    # For distances > 1, use exponential decay
                     match_score = max(0, min(1, 2 - distance))
-                
-                # Boost score for candidates with relevant skills
-                content = candidate.get('content', '').lower()
-                skills_text = metadata.get('skills', '').lower()
-                
-                # Check for key technology matches
-                tech_boost = 0
-                if 'react' in content or 'react' in skills_text:
-                    tech_boost += 0.1
-                if 'javascript' in content or 'javascript' in skills_text:
-                    tech_boost += 0.1
-                if 'frontend' in content or 'frontend' in skills_text:
-                    tech_boost += 0.05
-                
-                match_score = min(1.0, match_score + tech_boost)
                 
                 # Extract key skills for display
                 skills = metadata.get('skills', '')
@@ -186,31 +232,47 @@ class CandidateShortlistTool(BaseTool):
                 
                 shortlist.append(f"**{i}. {candidate_name}**")
                 shortlist.append(f"   🆔 Unique ID: {unique_id[:16]}...")
-                shortlist.append(f"   📊 Match Score: {match_score:.2f}/1.00")
+                shortlist.append(f"   📊 Combined Score: {combined_score:.2f}/1.00 (Match: {match_score:.2f} + Experience Rank)")
                 shortlist.append(f"   💼 Experience: {experience} years")
                 shortlist.append(f"   🛠️  Key Skills: {skills_display}")
                 shortlist.append(f"   📧 Contact: {metadata.get('email', 'Not available')}")
                 
-                if match_score > 0.7:
-                    shortlist.append("   ⭐ **HIGHLY RECOMMENDED**")
-                elif match_score > 0.5:
-                    shortlist.append("   ✅ **GOOD MATCH**")
+                if combined_score > 0.8:
+                    shortlist.append("   ⭐ **HIGHLY RECOMMENDED** (Top experience + match)")
+                elif combined_score > 0.6:
+                    shortlist.append("   ✅ **GOOD MATCH** (Good experience + skills)")
                 else:
-                    shortlist.append("   ⚠️  **MODERATE MATCH**")
+                    shortlist.append("   ⚠️  **MODERATE MATCH** (Meets requirements)")
                 shortlist.append("")
             
-            # Enhanced summary with deduplication metrics
-            high_match_count = sum(1 for c in final_candidates if (1 - c.get('distance', 1)) > 0.7)
+            # Enhanced summary with deduplication and experience-based ranking metrics
+            high_match_count = sum(1 for c in final_candidates if c.get('combined_score', 0) > 0.8)
+            good_match_count = sum(1 for c in final_candidates if 0.6 <= c.get('combined_score', 0) <= 0.8)
             
-            shortlist.append("📈 **DEDUPLICATION SUMMARY:**")
+            # Calculate experience distribution
+            exp_distribution = {}
+            for candidate in final_candidates:
+                exp = candidate.get('metadata', {}).get('experience_years', 0)
+                exp_range = f"{int(exp//5)*5}-{int(exp//5)*5+4}" if exp < 20 else "20+"
+                exp_distribution[exp_range] = exp_distribution.get(exp_range, 0) + 1
+            
+            shortlist.append("📈 **ENHANCED RANKING SUMMARY:**")
             shortlist.append(f"   • Initial search results: {len(initial_results)}")
             shortlist.append(f"   • After deduplication: {len(unique_results)} unique candidates")
             shortlist.append(f"   • Meeting experience requirement: {len(filtered_candidates)}")
-            shortlist.append(f"   • Final shortlist: {len(final_candidates)} candidates")
-            shortlist.append(f"   • Highly recommended (>70% match): {high_match_count}")
+            shortlist.append(f"   • Final shortlist (sorted by experience + match): {len(final_candidates)} candidates")
+            shortlist.append(f"   • Highly recommended (>80% combined score): {high_match_count}")
+            shortlist.append(f"   • Good matches (60-80% combined score): {good_match_count}")
             shortlist.append(f"   • Duplicates eliminated: {len(initial_results) - len(unique_results)}")
+            
+            if exp_distribution:
+                shortlist.append("   • Experience distribution:")
+                for exp_range, count in sorted(exp_distribution.items()):
+                    shortlist.append(f"     - {exp_range} years: {count} candidates")
+            
             shortlist.append("")
-            shortlist.append("🔒 **GUARANTEE**: No duplicate candidates in this list!")
+            shortlist.append("🔒 **GUARANTEE**: No duplicate candidates + Experience-optimized ranking!")
+            shortlist.append("🎯 **RANKING**: Candidates sorted by combined score (60% match + 30% experience + 10% tech skills)")
             
             return "\n".join(shortlist)
             

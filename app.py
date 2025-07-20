@@ -314,15 +314,26 @@ with col2:
                             st.session_state.search_performed = False
                             st.warning("No candidates found matching your criteria.")
                         else:
-                            # Extract candidates from the shortlist tool result
+                            # Use the already filtered and processed results from shortlist tool
+                            # Get the filtered results that respect experience requirements
                             from services.vector_db import get_vector_db
                             vector_db = get_vector_db()
                             
-                            # Get raw results for parsing
-                            raw_results = vector_db.search_candidates(generated_query, num_candidates * 2)
+                            # Get raw results and apply the same filtering logic as the shortlist tool
+                            raw_results = vector_db.search_candidates(generated_query, num_candidates * 3)
                             
-                            # Process and deduplicate using the tool's logic
-                            unique_results = shortlist_tool._deduplicate_candidates(raw_results)
+                            # Apply experience filtering (same logic as shortlist tool)
+                            filtered_results = []
+                            for candidate in raw_results:
+                                metadata = candidate.get('metadata', {})
+                                candidate_experience = metadata.get('experience_years', 0)
+                                
+                                # Apply the same experience filter as the shortlist tool
+                                if min_exp <= candidate_experience <= max_exp:
+                                    filtered_results.append(candidate)
+                            
+                            # Process and deduplicate the filtered results
+                            unique_results = shortlist_tool._deduplicate_candidates(filtered_results)
                             
                             # Convert to display format
                             candidates_list = []
