@@ -12,9 +12,23 @@ It allows HR users to:
 - Generate job descriptions with similar job insights
 - Create hiring checklists with relevant interview questions
 - **Search and match candidates against job requirements** ✅
+- **Download individual and bulk candidate resumes** 🆕
+- **Export candidate data to CSV format** 🆕
 - Query HR policies and company guidelines
 - Ask follow-up questions based on role
 - Retain memory across steps in a session
+
+## 🆕 New Download Features
+
+The application now includes comprehensive resume download functionality:
+
+- **📄 Individual Downloads**: One-click download for each candidate's resume
+- **📦 Bulk ZIP Downloads**: Download all shortlisted resumes in a single ZIP file
+- **📊 CSV Export**: Export candidate information to spreadsheet format
+- **📈 Download Statistics**: Real-time metrics on resume availability
+- **🔍 Smart File Detection**: Intelligent matching of candidates to resume files
+
+See [DOWNLOAD_FEATURES.md](DOWNLOAD_FEATURES.md) for detailed documentation.
 
 ## 🧰 Tech Stack
 
@@ -26,6 +40,7 @@ It allows HR users to:
 | OpenAI gpt-4o | Core LLM used (via AzureChatOpenAI) |
 | ChromaDB | Vector database for document storage |
 | Sentence Transformers | Text embeddings for similarity search |
+| Streamlit | Web interface for candidate selection and downloads |
 
 ## 🗄️ Vector Database Integration
 
