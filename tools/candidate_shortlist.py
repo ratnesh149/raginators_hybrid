@@ -155,12 +155,19 @@ class CandidateShortlistTool(BaseTool):
         return min(1.0, combined_score)
 
     def _run(self, job_requirements: str, min_experience: int = 0, max_experience: int = 999, n_candidates: int = 10) -> str:
-        """Shortlist candidates with guaranteed deduplication and experience-based sorting"""
+        """Shortlist candidates with guaranteed deduplication, experience filtering, and enhanced skills matching"""
         try:
             vector_db = get_vector_db()
             
-            # Search for matching candidates (get more to account for deduplication)
-            search_multiplier = max(3, n_candidates // 2)  # Get 3x or at least n_candidates/2 extra
+            # Parse required skills from job requirements
+            required_skills = []
+            if "Required Skills:" in job_requirements:
+                skills_line = [line for line in job_requirements.split('\n') if line.startswith("Required Skills:")][0]
+                skills_text = skills_line.replace("Required Skills:", "").strip()
+                required_skills = [skill.strip() for skill in skills_text.split(',') if skill.strip()]
+            
+            # Search for matching candidates (get more to account for filtering)
+            search_multiplier = max(4, n_candidates)  # Get 4x candidates for better filtering
             initial_results = vector_db.search_candidates(
                 job_requirements, 
                 n_candidates * search_multiplier
@@ -175,35 +182,66 @@ class CandidateShortlistTool(BaseTool):
             unique_results = self._deduplicate_candidates(initial_results)
             
             # Step 2: Filter by experience requirement (both min and max)
-            filtered_candidates = []
+            experience_filtered = []
             for result in unique_results:
                 metadata = result.get('metadata', {})
                 candidate_experience = metadata.get('experience_years', 0)
                 
                 if min_experience <= candidate_experience <= max_experience:
-                    filtered_candidates.append(result)
+                    experience_filtered.append(result)
             
-            if not filtered_candidates:
+            if not experience_filtered:
                 return f"No unique candidates found with {min_experience}-{max_experience} years of experience."
             
-            # Step 3: Sort candidates by combined score (match score + experience preference)
-            for candidate in filtered_candidates:
-                candidate['combined_score'] = self._calculate_combined_score(candidate, min_experience, max_experience)
+            # Step 3: Enhanced skills filtering
+            skills_filtered = experience_filtered
+            if required_skills:
+                from services.skills_matcher import skills_matcher
+                
+                # Apply skills filtering with a reasonable threshold
+                skills_filtered = skills_matcher.filter_candidates_by_skills(
+                    experience_filtered, 
+                    required_skills, 
+                    min_match_threshold=0.2  # 20% minimum skills match
+                )
+                
+                if not skills_filtered:
+                    # If no candidates meet skills threshold, show best experience matches with skills analysis
+                    skills_filtered = skills_matcher.filter_candidates_by_skills(
+                        experience_filtered, 
+                        required_skills, 
+                        min_match_threshold=0.0  # Show all with skills analysis
+                    )[:n_candidates]
             
-            # Sort by combined score (highest first)
-            filtered_candidates.sort(key=lambda x: x['combined_score'], reverse=True)
+            # Step 4: Sort candidates by combined score (match score + experience preference + skills match)
+            for candidate in skills_filtered:
+                base_score = self._calculate_combined_score(candidate, min_experience, max_experience)
+                
+                # Add skills matching bonus
+                skills_analysis = candidate.get('skills_analysis', {})
+                skills_bonus = skills_analysis.get('match_score', 0) * 0.3  # 30% weight for skills
+                
+                candidate['final_combined_score'] = min(1.0, base_score + skills_bonus)
             
-            # Step 4: Take top N candidates
-            final_candidates = filtered_candidates[:n_candidates]
+            # Sort by final combined score (highest first)
+            skills_filtered.sort(key=lambda x: x.get('final_combined_score', 0), reverse=True)
             
-            # Step 5: Format results with deduplication and experience-based ranking info
+            # Step 5: Take top N candidates
+            final_candidates = skills_filtered[:n_candidates]
+            
+            # Step 6: Format results with enhanced skills information
             shortlist = []
-            shortlist.append(f"🎯 **HYBRID CANDIDATE SHORTLIST** (Top {len(final_candidates)} unique matches)")
+            shortlist.append(f"🎯 **ENHANCED CANDIDATE SHORTLIST** (Top {len(final_candidates)} unique matches)")
             shortlist.append("=" * 70)
             shortlist.append(f"✅ **DEDUPLICATION GUARANTEE**: All candidates are 100% unique")
+            
             if min_experience > 0 or max_experience < 999:
                 exp_range = f"{min_experience}-{max_experience}" if max_experience < 999 else f"{min_experience}+"
-                shortlist.append(f"🎯 **EXPERIENCE FILTER**: {exp_range} years (sorted by experience + match score)")
+                shortlist.append(f"🎯 **EXPERIENCE FILTER**: {exp_range} years")
+            
+            if required_skills:
+                shortlist.append(f"🛠️ **SKILLS FILTER**: {', '.join(required_skills[:5])}{'...' if len(required_skills) > 5 else ''}")
+            
             shortlist.append("")
             
             for i, candidate in enumerate(final_candidates, 1):
@@ -212,15 +250,12 @@ class CandidateShortlistTool(BaseTool):
                 experience = metadata.get('experience_years', 'Unknown')
                 unique_id = metadata.get('unique_id', 'N/A')
                 
-                # Use the pre-calculated combined score
-                combined_score = candidate.get('combined_score', 0)
+                # Use the pre-calculated final combined score
+                final_score = candidate.get('final_combined_score', 0)
                 
-                # Calculate individual components for display
-                distance = candidate.get('distance', 1.0)
-                if distance <= 1.0:
-                    match_score = max(0, min(1, 1 - distance))
-                else:
-                    match_score = max(0, min(1, 2 - distance))
+                # Get skills analysis
+                skills_analysis = candidate.get('skills_analysis', {})
+                skills_match_score = skills_analysis.get('match_score', 0)
                 
                 # Extract key skills for display
                 skills = metadata.get('skills', '')
@@ -232,52 +267,70 @@ class CandidateShortlistTool(BaseTool):
                 
                 shortlist.append(f"**{i}. {candidate_name}**")
                 shortlist.append(f"   🆔 Unique ID: {unique_id[:16]}...")
-                shortlist.append(f"   📊 Combined Score: {combined_score:.2f}/1.00 (Match: {match_score:.2f} + Experience Rank)")
+                shortlist.append(f"   📊 Final Score: {final_score:.2f}/1.00 (Match + Experience + Skills)")
+                
+                if required_skills and skills_analysis:
+                    shortlist.append(f"   🎯 Skills Match: {skills_match_score:.1%} ({skills_analysis.get('exact_matches', 0)}/{skills_analysis.get('total_required', 0)} exact)")
+                    
+                    if skills_analysis.get('matched_skills'):
+                        matched_display = ', '.join(skills_analysis['matched_skills'][:3])
+                        shortlist.append(f"   ✅ Matched Skills: {matched_display}")
+                    
+                    if skills_analysis.get('missing_skills'):
+                        missing_display = ', '.join(skills_analysis['missing_skills'][:3])
+                        shortlist.append(f"   ❌ Missing Skills: {missing_display}")
+                    
+                    if skills_analysis.get('bonus_skills'):
+                        bonus_display = ', '.join(skills_analysis['bonus_skills'][:2])
+                        shortlist.append(f"   🌟 Bonus Skills: {bonus_display}")
+                
                 shortlist.append(f"   💼 Experience: {experience} years")
                 shortlist.append(f"   🛠️  Key Skills: {skills_display}")
                 shortlist.append(f"   📧 Contact: {metadata.get('email', 'Not available')}")
                 
-                if combined_score > 0.8:
-                    shortlist.append("   ⭐ **HIGHLY RECOMMENDED** (Top experience + match)")
-                elif combined_score > 0.6:
-                    shortlist.append("   ✅ **GOOD MATCH** (Good experience + skills)")
+                if final_score > 0.8:
+                    shortlist.append("   ⭐ **HIGHLY RECOMMENDED** (Excellent match across all criteria)")
+                elif final_score > 0.6:
+                    shortlist.append("   ✅ **GOOD MATCH** (Strong match with minor gaps)")
                 else:
-                    shortlist.append("   ⚠️  **MODERATE MATCH** (Meets requirements)")
+                    shortlist.append("   ⚠️  **MODERATE MATCH** (Meets basic requirements)")
                 shortlist.append("")
             
-            # Enhanced summary with deduplication and experience-based ranking metrics
-            high_match_count = sum(1 for c in final_candidates if c.get('combined_score', 0) > 0.8)
-            good_match_count = sum(1 for c in final_candidates if 0.6 <= c.get('combined_score', 0) <= 0.8)
+            # Enhanced summary with skills filtering metrics
+            high_match_count = sum(1 for c in final_candidates if c.get('final_combined_score', 0) > 0.8)
+            good_match_count = sum(1 for c in final_candidates if 0.6 <= c.get('final_combined_score', 0) <= 0.8)
             
-            # Calculate experience distribution
-            exp_distribution = {}
-            for candidate in final_candidates:
-                exp = candidate.get('metadata', {}).get('experience_years', 0)
-                exp_range = f"{int(exp//5)*5}-{int(exp//5)*5+4}" if exp < 20 else "20+"
-                exp_distribution[exp_range] = exp_distribution.get(exp_range, 0) + 1
+            # Calculate skills statistics
+            if required_skills:
+                avg_skills_match = sum(c.get('skills_analysis', {}).get('match_score', 0) for c in final_candidates) / max(len(final_candidates), 1)
+                perfect_skills_matches = sum(1 for c in final_candidates if c.get('skills_analysis', {}).get('match_score', 0) >= 0.9)
             
-            shortlist.append("📈 **ENHANCED RANKING SUMMARY:**")
+            shortlist.append("📈 **ENHANCED FILTERING SUMMARY:**")
             shortlist.append(f"   • Initial search results: {len(initial_results)}")
             shortlist.append(f"   • After deduplication: {len(unique_results)} unique candidates")
-            shortlist.append(f"   • Meeting experience requirement: {len(filtered_candidates)}")
-            shortlist.append(f"   • Final shortlist (sorted by experience + match): {len(final_candidates)} candidates")
-            shortlist.append(f"   • Highly recommended (>80% combined score): {high_match_count}")
-            shortlist.append(f"   • Good matches (60-80% combined score): {good_match_count}")
+            shortlist.append(f"   • After experience filtering: {len(experience_filtered)}")
+            
+            if required_skills:
+                shortlist.append(f"   • After skills filtering: {len(skills_filtered)}")
+                shortlist.append(f"   • Average skills match: {avg_skills_match:.1%}")
+                shortlist.append(f"   • Perfect skills matches: {perfect_skills_matches}")
+            
+            shortlist.append(f"   • Final shortlist: {len(final_candidates)} candidates")
+            shortlist.append(f"   • Highly recommended (>80% score): {high_match_count}")
+            shortlist.append(f"   • Good matches (60-80% score): {good_match_count}")
             shortlist.append(f"   • Duplicates eliminated: {len(initial_results) - len(unique_results)}")
             
-            if exp_distribution:
-                shortlist.append("   • Experience distribution:")
-                for exp_range, count in sorted(exp_distribution.items()):
-                    shortlist.append(f"     - {exp_range} years: {count} candidates")
-            
             shortlist.append("")
-            shortlist.append("🔒 **GUARANTEE**: No duplicate candidates + Experience-optimized ranking!")
-            shortlist.append("🎯 **RANKING**: Candidates sorted by combined score (60% match + 30% experience + 10% tech skills)")
+            shortlist.append("🔒 **GUARANTEE**: No duplicate candidates + Multi-criteria optimization!")
+            shortlist.append("🎯 **RANKING**: Candidates sorted by combined score (40% match + 30% experience + 30% skills)")
+            
+            if required_skills:
+                shortlist.append("🛠️ **SKILLS ANALYSIS**: Detailed skills matching with exact/partial/bonus skill identification")
             
             return "\n".join(shortlist)
             
         except Exception as e:
-            logger.error(f"Error in hybrid candidate shortlisting: {e}")
+            logger.error(f"Error in enhanced candidate shortlisting: {e}")
             return f"Error shortlisting candidates: {str(e)}"
 
 # Create the tool instance

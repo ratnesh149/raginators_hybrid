@@ -1,0 +1,23 @@
+{
+  "total_searches": 1,
+  "successful_matches": 1,
+  "field_effectiveness": {
+    "job_title": {
+      "uses": 1,
+      "successes": 1
+    },
+    "required_skills": {
+      "uses": 1,
+      "successes": 1
+    },
+    "experience_level": {
+      "uses": 1,
+      "successes": 1
+    },
+    "num_candidates": {
+      "uses": 1,
+      "successes": 1
+    }
+  },
+  "popular_combinations": []
+}

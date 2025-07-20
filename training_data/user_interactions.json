@@ -1,0 +1,27 @@
+[
+  {
+    "timestamp": "2025-07-20T06:32:04.505174",
+    "search_criteria": {
+      "job_title": "software engineer",
+      "required_skills": "React",
+      "experience_level": "Entry Level (0-2 years)",
+      "location": "",
+      "education": "Any",
+      "num_candidates": 5
+    },
+    "results_count": 1,
+    "results_summary": [
+      {
+        "name": "Miguel Santos",
+        "experience": "2.0 years",
+        "match_score": "79%",
+        "skills": "C#, Go, R, Gin, SQL, Azure, AI"
+      }
+    ],
+    "user_feedback": null,
+    "success_indicators": {
+      "found_candidates": true,
+      "good_match_count": 1
+    }
+  }
+]
